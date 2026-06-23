@@ -242,23 +242,52 @@ function initFrameScrub() {
 function initSections() {
   // Read the actual container height so section positions stay in sync on mobile
   // (CSS sets 550vh on mobile vs 850vh on desktop — hardcoding 850 breaks mobile).
-  const totalVh = scrollCont.offsetHeight / window.innerHeight * 100;
+  const totalVh  = scrollCont.offsetHeight / window.innerHeight * 100;
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
 
-  document.querySelectorAll('.scroll-section').forEach(section => {
-    const enter    = parseFloat(section.dataset.enter) / 100;
-    const leave    = parseFloat(section.dataset.leave) / 100;
-    const midPct   = (enter + leave) / 2;
-    const animType = section.dataset.animation;
-    const persist  = section.dataset.persist === 'true';
+  // Only process sections that are visible in this layout.
+  // On mobile, .section-stats is display:none so it is skipped here and
+  // its overlay/counter code is also guarded separately.
+  const sections = [...document.querySelectorAll('.scroll-section')]
+    .filter(s => getComputedStyle(s).display !== 'none');
 
-    section.style.top = (midPct * totalVh) + 'vh';
+  // Mobile: evenly redistribute the 4 visible sections (001, 002, 003, CTA)
+  // so removing the stats block leaves no gap or dark patch.
+  // We write back to dataset.enter / dataset.leave so initDarkOverlay,
+  // which runs next and reads those same attributes, stays in sync.
+  if (isMobile) {
+    const START = 0.20, END = 1.0, PAD = 0.02;
+    const slot  = (END - START) / sections.length;
+    sections.forEach((section, i) => {
+      const e = START + i * slot + PAD;
+      const l = (i === sections.length - 1) ? END : START + (i + 1) * slot - PAD;
+      section.dataset.enter = (e * 100).toFixed(2);
+      section.dataset.leave = (l * 100).toFixed(2);
+    });
+  }
+
+  sections.forEach(section => {
+    const enter   = parseFloat(section.dataset.enter) / 100;
+    const leave   = parseFloat(section.dataset.leave) / 100;
+    const midPct  = (enter + leave) / 2;
+    const persist = section.dataset.persist === 'true';
+
+    // On mobile: use a single calm entrance for all sections so there is
+    // no clipping, scattering or x-offset motion on a small screen.
+    const animType = isMobile ? 'fade-up' : section.dataset.animation;
+
+    section.style.top = (midPct * (totalVh - 100) + 50) + 'vh';
 
     const children = section.querySelectorAll(
       '.section-label, .section-heading, .section-body, .cta-button, .stats-grid, .stat'
     );
 
     const enterTl = buildEnterTimeline(animType, children);
-    const leaveTl = buildLeaveTimeline(animType, children);
+    // On mobile: gentle fade-up exit so content doesn't clip or scatter
+    // while the next section is already arriving.
+    const leaveTl = isMobile
+      ? gsap.timeline({ paused: true }).to(children, { opacity: 0, y: -20, duration: 0.45, ease: 'power2.in' })
+      : buildLeaveTimeline(animType, children);
     let wasIn = false;
 
     ScrollTrigger.create({
@@ -273,48 +302,55 @@ function initSections() {
           wasIn = true;
           section.classList.add('is-visible');
           section.style.opacity = '1';
-          leaveTl.pause(0);
+          leaveTl.pause();
           enterTl.restart();
         } else if (!isIn && wasIn && !persist) {
           wasIn = false;
           section.classList.remove('is-visible');
           enterTl.pause();
+          leaveTl.restart();
           leaveTl.eventCallback('onComplete', () => {
             if (!wasIn) section.style.opacity = '0';
           });
-          leaveTl.restart();
         }
       }
     });
   });
 }
 
-// Enter: each section has a distinct directional entrance
+// Enter: each section has a distinct directional entrance.
+// Uses fromTo so the visible end-state is always explicit — prevents
+// leave-timeline pollution from corrupting re-entry on scroll-back.
 function buildEnterTimeline(type, children) {
   const tl = gsap.timeline({ paused: true });
   switch (type) {
     case 'fade-up':
       // 001 — drift up from below
-      tl.from(children, { y: 50, opacity: 0, stagger: 0.12, duration: 0.9, ease: 'power3.out' });
+      tl.fromTo(children, { y: 50, opacity: 0 },
+        { y: 0, opacity: 1, stagger: 0.12, duration: 0.9, ease: 'power3.out' });
       break;
     case 'slide-right':
       // 002 — sweep in from the right
-      tl.from(children, { x: 80, opacity: 0, stagger: 0.14, duration: 0.9, ease: 'power3.out' });
+      tl.fromTo(children, { x: 80, opacity: 0 },
+        { x: 0, opacity: 1, stagger: 0.14, duration: 0.9, ease: 'power3.out' });
       break;
     case 'clip-reveal':
       // 003 — wipe up from bottom
-      tl.from(children, { clipPath: 'inset(100% 0 0 0)', opacity: 0, stagger: 0.15, duration: 1.2, ease: 'power4.inOut' });
+      tl.fromTo(children, { clipPath: 'inset(100% 0 0 0)', opacity: 0 },
+        { clipPath: 'inset(0% 0 0 0)', opacity: 1, stagger: 0.15, duration: 1.2, ease: 'power4.inOut' });
       break;
     case 'stagger-up':
       // 004 — cascade up with scale
-      tl.from(children, { y: 60, scale: 0.9, opacity: 0, stagger: 0.15, duration: 0.8, ease: 'power3.out' });
+      tl.fromTo(children, { y: 60, scale: 0.9, opacity: 0 },
+        { y: 0, scale: 1, opacity: 1, stagger: 0.15, duration: 0.8, ease: 'power3.out' });
       break;
     case 'scale-up':
       // 005 — expand from center
-      tl.from(children, { scale: 0.88, opacity: 0, stagger: 0.12, duration: 1.0, ease: 'power2.out' });
+      tl.fromTo(children, { scale: 0.88, opacity: 0 },
+        { scale: 1, opacity: 1, stagger: 0.12, duration: 1.0, ease: 'power2.out' });
       break;
     default:
-      tl.from(children, { opacity: 0, duration: 0.6, ease: 'power2.out' });
+      tl.fromTo(children, { opacity: 0 }, { opacity: 1, duration: 0.6, ease: 'power2.out' });
   }
   return tl;
 }
@@ -354,11 +390,16 @@ function buildLeaveTimeline(type, children) {
 function initDarkOverlay() {
   const fadeRange = 0.03;
 
-  const overlayZones = [...document.querySelectorAll('[data-overlay]')].map(el => ({
-    enter:   parseFloat(el.dataset.enter)   / 100,
-    leave:   parseFloat(el.dataset.leave)   / 100,
-    opacity: parseFloat(el.dataset.overlay),
-  }));
+  // Skip sections hidden by CSS (e.g. .section-stats on mobile) so their
+  // overlay zone is excluded. The dataset values were already rewritten by
+  // initSections() for the visible sections, so these are always in sync.
+  const overlayZones = [...document.querySelectorAll('[data-overlay]')]
+    .filter(el => getComputedStyle(el).display !== 'none')
+    .map(el => ({
+      enter:   parseFloat(el.dataset.enter)   / 100,
+      leave:   parseFloat(el.dataset.leave)   / 100,
+      opacity: parseFloat(el.dataset.overlay),
+    }));
 
   ScrollTrigger.create({
     trigger: scrollCont,
@@ -393,29 +434,44 @@ function initMarquee() {
 
 // ─── Counters ──────────────────────────────────────────────────
 function initCounters() {
-  document.querySelectorAll('.stat-number').forEach(el => {
+  const counterEls = document.querySelectorAll('.stat-number');
+  if (!counterEls.length) return;
+
+  const statsSection = document.querySelector('.section-stats');
+  if (!statsSection) return;
+  if (getComputedStyle(statsSection).display === 'none') return; // hidden on mobile
+  const enter = parseFloat(statsSection.dataset.enter) / 100;
+
+  counterEls.forEach(el => {
     const target   = parseFloat(el.dataset.value);
     const decimals = parseInt(el.dataset.decimals || '0');
     const obj      = { val: 0 };
+    let hasAnimated = false;
 
     ScrollTrigger.create({
-      trigger: el.closest('.scroll-section'),
-      start: 'top 80%',
-      onEnter() {
-        gsap.to(obj, {
-          val: target,
-          duration: 2,
-          ease: 'power1.out',
-          onUpdate() {
-            el.textContent = decimals === 0
-              ? Math.round(obj.val).toString()
-              : obj.val.toFixed(decimals);
-          }
-        });
-      },
-      onLeaveBack() {
-        obj.val = 0;
-        el.textContent = '0';
+      trigger: scrollCont,
+      start: 'top top',
+      end: 'bottom bottom',
+      onUpdate(self) {
+        const p = self.progress;
+        if (p >= enter && !hasAnimated) {
+          hasAnimated = true;
+          gsap.to(obj, {
+            val: target,
+            duration: 2,
+            ease: 'power1.out',
+            onUpdate() {
+              el.textContent = decimals === 0
+                ? Math.round(obj.val).toString()
+                : obj.val.toFixed(decimals);
+            }
+          });
+        } else if (p < enter - 0.02 && hasAnimated) {
+          hasAnimated = false;
+          obj.val = 0;
+          el.textContent = '0';
+          gsap.killTweensOf(obj);
+        }
       }
     });
   });
