@@ -672,16 +672,24 @@ body.nav-open { overflow: hidden; }
 
   .scroll-section { min-height: auto; padding-top: 4rem; padding-bottom: 4rem; }
 
+  /* Text sections — legibility over the frame animation */
+  .section-heading { text-shadow: 0 2px 24px rgba(8, 7, 14, 0.7); margin-bottom: 1rem; }
+  .section-body    { text-shadow: 0 1px 12px rgba(8, 7, 14, 0.6); max-width: 38ch; line-height: 1.7; }
+
+  /* Stats — tighter stacked layout */
   .stats-grid {
     flex-direction: column;
     align-items: center;
-    gap: 2.5rem;
+    gap: 1.6rem;
   }
-
+  .stat { padding: 0; gap: 0.2rem; }
   .stat + .stat::before { display: none; }
+  .stat-suffix { font-size: clamp(1rem, 5vw, 1.5rem); }
+  .stat-label  { margin-top: 0.25rem; }
 
-  #marquee-wrap { bottom: 2vh; }
-  .marquee-text { font-size: clamp(3rem, 18vw, 6rem); }
+  /* Marquee — smaller so it doesn't crowd the CTA panel */
+  #marquee-wrap { bottom: 3vh; }
+  .marquee-text { font-size: clamp(2.5rem, 15vw, 5rem); }
 
   #hero::before { width: 100vw; height: 100vw; }
 }
@@ -693,7 +701,7 @@ body.nav-open { overflow: hidden; }
 
   /* Landing stats */
   .stat-number { font-size: clamp(3rem, 16vw, 4.5rem); }
-  .stat { padding: 0 clamp(1.5rem, 6vw, 2.5rem); }
+  .stat { padding: 0; }
 
   /* Scroll sections — tighter side padding on very narrow screens */
   .align-left, .align-right { padding: 0 5vw; }

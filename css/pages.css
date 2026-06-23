@@ -1628,9 +1628,31 @@
   .site-footer nav { gap: 1.25rem; }
 
   .champions-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
-  .match-row { grid-template-columns: 50px 1fr auto; }
-  .match-sport-tag { display: none; }
-  .match-local { display: none; }
+  .match-row {
+    grid-template-columns: 50px 1fr auto;
+    align-items: start;
+    column-gap: 0.75rem;
+    row-gap: 0.2rem;
+  }
+  .match-time  { grid-row: 1; grid-column: 1; align-self: center; }
+  .match-teams { grid-row: 1; grid-column: 2; align-self: center; white-space: normal; }
+  .match-badge { grid-row: 1; grid-column: 3; align-self: center; }
+  .match-sport-tag {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    display: block;
+    font-size: 0.62rem;
+    color: var(--purple-light);
+    opacity: 0.85;
+  }
+  .match-local {
+    grid-row: 3;
+    grid-column: 1 / -1;
+    display: block;
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    opacity: 0.7;
+  }
   .teams-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 
   .ic-hub-grid { grid-template-columns: 1fr; }
@@ -1663,7 +1685,7 @@
   .teams-grid     { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 
   /* Match rows — tighter spacing */
-  .match-row { gap: 0.6rem; padding: 0.65rem 0; }
+  .match-row { column-gap: 0.6rem; row-gap: 0.2rem; padding: 0.65rem 0; }
 
   /* Cronograma result player name */
   .cronograma-player-name { font-size: clamp(1.75rem, 10vw, 2.5rem); }
