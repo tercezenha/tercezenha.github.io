@@ -99,7 +99,7 @@ const TEAMS = {
     'Handebol':       ['Sant\'Anna','Kazuki','Donha','Luiz','Copelli','PH','Sampaio'],
     'Tênis de Mesa':  ['Kazuki','Sant\'Anna','Sampaio','Bruno Relva','Beretta'],
     'Pebolim':        ['Bruno Relva e Tambasco','Kazuki e Sant\'Anna','Talli e Peter'],
-    'Futmesa':        ['Bruno Relva e Antonio','Barros e Tambasco','Beretta e Sant\'Anna','Arthur e Matheus'],
+    'Futmesa':        ['Bruno Relva e Antonio','Barros e Tambasco','Beretta e Sant\'Anna','Arthur e Matheus Regatieri'],
     'Olimpíada CG':   ['Sampaio, André, Capp e Talli','Guilherme, Bruno Relva, Tambasco e Arthur','Ana, Bia, Laura e Manu'],
   },
   '3B': {
@@ -841,6 +841,12 @@ const normName = s =>
    .replace(/\s+/g, ' ')
    .trim();
 
+// Maps normalized variant spellings → normalized canonical name.
+// Used so alternate spellings resolve to the same player in Meu Cronograma.
+const PLAYER_ALIASES = {
+  'matheus regatierri': 'matheus regatieri',
+};
+
 let cronogramaGrade   = null;   // { label, classes } or null until user selects
 let cronogramaMatches = null;
 
@@ -870,12 +876,16 @@ function getAllPlayersForClasses(classes) {
 // soloTokens: Map of filter → Set of normalized entry strings (e.g. 'sampaio')
 //             for individual sports.
 function getPlayerTokens(classes, playerName) {
-  const playerNorm = normName(playerName);
+  const playerNorm    = normName(playerName);
+  const canonicalNorm = PLAYER_ALIASES[playerNorm] ?? playerNorm;
   const teamFilterMap = {};   // filter → Set of fixture team-id strings (sport-scoped)
   const soloFilterMap = {};   // filter → Set of normalized entry strings
 
   function playerInEntry(entry) {
-    return entry.split(/,\s*|\s+e\s+/).some(n => normName(n) === playerNorm);
+    return entry.split(/,\s*|\s+e\s+/).some(n => {
+      const nn = normName(n);
+      return nn === canonicalNorm || (PLAYER_ALIASES[nn] ?? nn) === canonicalNorm;
+    });
   }
 
   for (const cls of classes) {
