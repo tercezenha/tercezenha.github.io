@@ -13,7 +13,6 @@ const TEAMS = {
     'Pebolim':        ['Antonio Cabizuca','Antonio Amarante e Lucas de Freitas','Clarisse Rosa e Sofia Valim Kiyohara'],
     'Tênis de Mesa':  ['Antonio Amarante','Nicolas Frossard'],
     'Futmesa':        ['Antonio Amarante e Rafael Matos','Pedro Henrique e Bruno Chico'],
-    'Olimpíada CG':   ['Antonio Cabizuca e Nicolas Frossard'],
   },
   '6B': {
     'Futebol':        { 'Time 1': ['Miguel Arruti','Gustavo Lourenço','Pedro Magnelli','Thiago Chico','Vinicius Sintra'], 'Time 2': ['Felipe Vita','João Vitor','Rafael Bot','Rodrigo Goldman','Theo Gama','Joaquim Sily'] },
@@ -23,15 +22,13 @@ const TEAMS = {
     'Pebolim':        ['Gustavo Lourenço','Isabela Cordeiro e Lara Souza','João Vitor e Manuela Rodrigues','Maria Clara Panis e Isabella Morais','Rodrigo Goldman e Rafael Matos'],
     'Tênis de Mesa':  ['Gustavo Lourenço','João Vitor','Rodrigo Goldman','Thiago Chico','Vinicius Sintra'],
     'Futmesa':        ['Gustavo Lourenço e Thiago Chico','João Vitor e Vinicius Sintra'],
-    'Olimpíada CG':   ['Isabela Cordeiro, João Vitor e Maria Clara Panis'],
   },
   '7A': {
     'Futebol':        ['Daniel Breder','Pedro Bezerra','Gabriel Ramos','Pedro Tambellini','Francisco Collet','Luiza Lopes','Andrey'],
     'Basquete':       ['Lucas Santana','Gabriel Siqueira','Pedro Tambellini','Bento Campeão','Pedro Amaral','Andrey','Nicolas Cabral'],
-    'Vôlei':          ['Lucas Santana','Gabriel Siqueira','Pedro Tambellini','Nicolas Cabral','Bento Campeão','Pedro Amaral','Andrey'],
+    'Vôlei':          ['Catarina Barros','Maria Lamaison','Gabriela Galhardo','Betina Vitelli','Laura','Luiza'],
     'Handebol':       ['Lucas Santana','Gabriel Siqueira','Pedro Tambellini','Nicolas Cabral','Bento Campeão','Pedro Amaral','Andrey'],
     'Tênis de Mesa':  ['Bento Campeão','Daniel Breder','Mateus Fer'],
-    'Olimpíada CG':   ['Bento Campeão, Mateus, Daniel e Andrey'],
   },
   '7B': {
     'Futebol':        ['Bento Campeão','Lucas Santana','Pietro Tambellini','Pedro Amaral','Rafael Parente','Rafael Eid','Pietro Bertolla','Bernardo Donha','Mateus Fre','Nicolas Cabral'],
@@ -40,16 +37,14 @@ const TEAMS = {
     'Handebol':       ['Bernardo Donha','Rafael Parente','Pietro Trevizan','Pedro Bezerra','Mateus Fre','Rafael Eid','Daniel Breder'],
     'Pebolim':        ['Bento Campeão e Lucas Santana','Gabriel Siqueira e Pedro Amaral','Parente e Pietro Trevizan','Rafael Eid'],
     'Futmesa':        ['Bento Campeão e Rafael Parente','Mateus Fer e Pietro Trevizan','Pedro Amaral e Lucas Santana','Rafael Eid e Pedro Bezerra','Nicolas Cabral e Gabriel Siqueira'],
-    'Olimpíada CG':   ['Gabriel Siqueira, Lucas Santana, Pedro Amaral e Pedro Bezerra'],
   },
   '8A': {
     'Futebol':        ['Miguel Cammarosan','Aike','Samuel','Guilherme','Arthur Mota','Gustavo Simões','Nicolas Seton'],
     'Basquete':       ['Miguel Cammarosan','Aike','Samuel','Guilherme','Arthur Mota','Gustavo Simões','Nicolas Seton'],
-    'Vôlei':          ['Miguel Cammarosan','Aike','Samuel','Guilherme','Arthur Mota','Gustavo Simões','Nicolas Seton'],
+    'Vôlei':          ['Miguel Cammarosan','Aike','Samuel','Guilherme','Arthur Mota','Gustavo Simões','Nicolas Seton','Carolina Barreto','Carol','Julia Dalfe','Manuela Gomes','Ana Carol','Sofia Rechi'],
     'Handebol':       ['Miguel Cammarosan','Aike','Samuel','Guilherme','Arthur Mota','Gustavo Simões','Nicolas Seton'],
     'Pebolim':        ['Samuel e Leo Rosa','Aike e Miguel'],
     'Futmesa':        ['Leo Rosa e Samuel'],
-    'Olimpíada CG':   ['Manuela Gomes','Carolina Barreto','Ana Carol','Sofia Rechi'],
   },
   '8B': {
     'Futebol':        ['Ayrton Aitsuda','Felipe Lobão','Matheus Zavatti','Pedro Figueiras','Leo Luz','Leo Rosa','Lucas Serra','Guilherme Crespilha','Pedro Pereira'],
