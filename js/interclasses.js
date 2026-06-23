@@ -18,7 +18,7 @@ const TEAMS = {
     'Futebol':        { 'Time 1': ['Miguel Arruti','Gustavo Lourenço','Pedro Magnelli','Thiago Chico','Vinicius Sintra'], 'Time 2': ['Felipe Vita','João Vitor','Rafael Bot','Rodrigo Goldman','Theo Gama','Joaquim Sily'] },
     'Basquete':       ['Felipe Vita','Gustavo Lourenço','Pedro Magnelli','Thiago Chico','Vinicius Sintra','João Vitor'],
     'Vôlei':          ['Isabela Cordeiro','Lara Souza','Manuela Pereira','Manuela Rodrigues','Maria Clara Panis','Maria Eduarda','Maria Silvia','Marina Pazinato','Nina Almada','Rafael Angheben','Carol Mota'],
-    'Handebol':       ['Gustavo Lourenço','Thiago Chico','Vinicius Sintra','Miguel Vita','João Vitor','Bruno Chico','Miguel Parruti'],
+    'Handebol':       ['Gustavo Lourenço','Thiago Chico','Vinicius Sintra','Miguel Vita','João Vitor','Bruno Chico','Miguel Arruti'],
     'Pebolim':        ['Gustavo Lourenço','Isabela Cordeiro e Lara Souza','João Vitor e Manuela Rodrigues','Maria Clara Panis e Isabella Morais','Rodrigo Goldman e Rafael Matos'],
     'Tênis de Mesa':  ['Gustavo Lourenço','João Vitor','Rodrigo Goldman','Thiago Chico','Vinicius Sintra'],
     'Futmesa':        ['Gustavo Lourenço e Thiago Chico','João Vitor e Vinicius Sintra'],
@@ -26,15 +26,15 @@ const TEAMS = {
   '7A': {
     'Futebol':        ['Daniel Breder','Pedro Bezerra','Gabriel Ramos','Pedro Tambellini','Francisco Collet','Luiza Lopes','Andrey'],
     'Basquete':       ['Lucas Santana','Gabriel Siqueira','Pedro Tambellini','Bento Campeão','Pedro Amaral','Andrey','Nicolas Cabral'],
-    'Vôlei':          ['Catarina Barros','Maria Lamaison','Gabriela Galhardo','Betina Vitelli','Laura','Luiza'],
+    'Vôlei':          ['Catarina Barros','Maria Lamaison','Gabriela Galhardo','Betina Vitelli','Laura','Luiza Lopes'],
     'Handebol':       ['Lucas Santana','Gabriel Siqueira','Pedro Tambellini','Nicolas Cabral','Bento Campeão','Pedro Amaral','Andrey'],
-    'Tênis de Mesa':  ['Bento Campeão','Daniel Breder','Mateus Fer'],
+    'Tênis de Mesa':  ['Bento Campeão','Daniel Breder','Mateus Fré'],
   },
   '7B': {
-    'Futebol':        ['Bento Campeão','Lucas Santana','Pietro Tambellini','Pedro Amaral','Rafael Parente','Rafael Eid','Pietro Bertolla','Bernardo Donha','Mateus Fre','Nicolas Cabral'],
-    'Basquete':       ['Bernardo Donha','Rafael Parente','Pietro Trevizan','Pedro Bezerra','Mateus Fre','Rafael Eid','Daniel Breder'],
-    'Vôlei':          ['Bernardo Donha','Rafael Parente','Pietro Trevizan','Pedro Bezerra','Mateus Fre','Rafael Eid','Daniel Breder'],
-    'Handebol':       ['Bernardo Donha','Rafael Parente','Pietro Trevizan','Pedro Bezerra','Mateus Fre','Rafael Eid','Daniel Breder'],
+    'Futebol':        ['Bento Campeão','Lucas Santana','Pietro Tambellini','Pedro Amaral','Rafael Parente','Rafael Eid','Pietro Bertolla','Bernardo Donha','Mateus Fré','Nicolas Cabral'],
+    'Basquete':       ['Bernardo Donha','Rafael Parente','Pietro Trevizan','Pedro Bezerra','Mateus Fré','Rafael Eid','Daniel Breder'],
+    'Vôlei':          ['Bernardo Donha','Rafael Parente','Pietro Trevizan','Pedro Bezerra','Mateus Fré','Rafael Eid','Daniel Breder'],
+    'Handebol':       ['Bernardo Donha','Rafael Parente','Pietro Trevizan','Pedro Bezerra','Mateus Fré','Rafael Eid','Daniel Breder'],
     'Pebolim':        ['Bento Campeão e Lucas Santana','Gabriel Siqueira e Pedro Amaral','Parente e Pietro Trevizan','Rafael Eid'],
     'Futmesa':        ['Bento Campeão e Rafael Parente','Mateus Fer e Pietro Trevizan','Pedro Amaral e Lucas Santana','Rafael Eid e Pedro Bezerra','Nicolas Cabral e Gabriel Siqueira'],
   },
@@ -78,7 +78,7 @@ const TEAMS = {
     'Vôlei':          ['Antonio Casati','Enzo','Erik Nunes','Giovanni','Mateus Cavalcante','Miguel Ramos','Pedro Casati','Pedro Eid','Pedro Thomozini'],
     'Handebol':       ['Antonio Casati','Enzo','Erik Nunes','Giovanni','Mateus Cavalcante','Miguel Ramos','Pedro Casati','Pedro Eid','Pedro Thomozini'],
     'Pebolim':        ['Erik Nunes e Mateus Cavalcanti'],
-    'Tênis de Mesa':  ['Erik Nunes','Mateus Cavalcanti','Giovanni'],
+    'Tênis de Mesa':  ['Erik Nunes','Mateus Cavalcante','Giovanni'],
     'Futmesa':        ['Erik Nunes e Mateus Cavalcanti','Pedro Eid e Giovanni'],
     'Olimpíada CG':   ['Leo Lobo, Pedro Cardoso, Mateus Cavalcanti e Erik Nunes'],
   },
@@ -845,6 +845,9 @@ const normName = s =>
 // Used so alternate spellings resolve to the same player in Meu Cronograma.
 const PLAYER_ALIASES = {
   'matheus regatierri': 'matheus regatieri',
+  'mateus cavalcanti':  'mateus cavalcante',
+  'mateus fer':         'mateus fre',         // normName('Mateus Fré') === 'mateus fre'
+  'miguel parruti':     'miguel arruti',
 };
 
 let cronogramaGrade   = null;   // { label, classes } or null until user selects
