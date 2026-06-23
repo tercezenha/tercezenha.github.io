@@ -36,7 +36,7 @@ const TEAMS = {
     'Vôlei':          ['Bernardo Donha','Rafael Parente','Pietro Trevizan','Pedro Bezerra','Mateus Fré','Rafael Eid','Daniel Breder'],
     'Handebol':       ['Bernardo Donha','Rafael Parente','Pietro Trevizan','Pedro Bezerra','Mateus Fré','Rafael Eid','Daniel Breder'],
     'Pebolim':        ['Bento Campeão e Lucas Santana','Gabriel Siqueira e Pedro Amaral','Parente e Pietro Trevizan','Rafael Eid'],
-    'Futmesa':        ['Bento Campeão e Rafael Parente','Mateus Fer e Pietro Trevizan','Pedro Amaral e Lucas Santana','Rafael Eid e Pedro Bezerra','Nicolas Cabral e Gabriel Siqueira'],
+    'Futmesa':        ['Bento Campeão e Rafael Parente','Mateus Fré e Pietro Trevizan','Pedro Amaral e Lucas Santana','Rafael Eid e Pedro Bezerra','Nicolas Cabral e Gabriel Siqueira'],
   },
   '8A': {
     'Futebol':        ['Miguel Cammarosan','Aike','Samuel','Guilherme','Arthur Mota','Gustavo Simões','Nicolas Seton'],
@@ -77,10 +77,10 @@ const TEAMS = {
     'Basquete':       ['Antonio Casati','Enzo','Erik Nunes','Giovanni','Mateus Cavalcante','Miguel Ramos','Pedro Casati','Pedro Eid','Pedro Thomozini'],
     'Vôlei':          ['Antonio Casati','Enzo','Erik Nunes','Giovanni','Mateus Cavalcante','Miguel Ramos','Pedro Casati','Pedro Eid','Pedro Thomozini'],
     'Handebol':       ['Antonio Casati','Enzo','Erik Nunes','Giovanni','Mateus Cavalcante','Miguel Ramos','Pedro Casati','Pedro Eid','Pedro Thomozini'],
-    'Pebolim':        ['Erik Nunes e Mateus Cavalcanti'],
+    'Pebolim':        ['Erik Nunes e Mateus Cavalcante'],
     'Tênis de Mesa':  ['Erik Nunes','Mateus Cavalcante','Giovanni'],
-    'Futmesa':        ['Erik Nunes e Mateus Cavalcanti','Pedro Eid e Giovanni'],
-    'Olimpíada CG':   ['Leo Lobo, Pedro Cardoso, Mateus Cavalcanti e Erik Nunes'],
+    'Futmesa':        ['Erik Nunes e Mateus Cavalcante','Pedro Eid e Giovanni'],
+    'Olimpíada CG':   ['Leo Lobo, Pedro Cardoso, Mateus Cavalcante e Erik Nunes'],
   },
   '2°': {
     'Futebol':        { 'Feminino': ['Clara Coelho','Dudinha','Lara Lourenço','Leticia','Lorena Ikeda','Mari Grecco','Sofia Moraes','Valentina Campos'], 'Masculino': ['Caio Medina','Gabriel Galebe','Lorenzo Bertolla','Luca Maia','Maurício','Murilo','Pedro K'] },
