@@ -157,7 +157,25 @@ const DAY_ORDER  = ['Qua', 'Qui', 'Sex', 'Seg', 'Ter'];
 const DAY_LABELS = { Qua: 'Quarta', Qui: 'Quinta', Sex: 'Sexta', Seg: 'Segunda', Ter: 'Terça' };
 const DAYS       = new Set(DAY_ORDER);
 
+// "Sala do 3B" is published as "Auditório" on the site.
+function relabelLocal(local) {
+  return /sala do 3b/i.test(local) ? 'Auditório' : local;
+}
+
+// Order the event days relative to today: days earlier than today (in the Wed→Tue
+// sequence) sink to the bottom; today + upcoming stay on top — each partition keeps
+// its chronological order. Returns the day list plus the set of past days.
+function orderedDays() {
+  const DAY_SEQ = { Qua: 0, Qui: 1, Sex: 2, Seg: 3, Ter: 4 };
+  const WD_SEQ  = { 3: 0, 4: 1, 5: 2, 6: 2.5, 0: 2.5, 1: 3, 2: 4 }; // Sat/Sun → between Fri & Mon
+  const today   = WD_SEQ[new Date().getDay()] ?? -1;
+  const upcoming = DAY_ORDER.filter(d => DAY_SEQ[d] >= today);
+  const past     = DAY_ORDER.filter(d => DAY_SEQ[d] <  today);
+  return { order: [...upcoming, ...past], pastSet: new Set(past) };
+}
+
 let activeFilter      = 'Todos';
+let activeLocation    = 'Todas';
 let activeGrupoSport  = 'Futebol';
 let lastMatches       = [];
 let lastChampions     = [];
@@ -247,7 +265,7 @@ async function fetchScheduleFixtures() {
     .map(r => ({
       dia:   FULLDAY_TO_ABBR[r[0].trim()],
       hora:  r[1].trim(),
-      local: r[3].trim(),
+      local: relabelLocal(r[3].trim()),
       fase:  r[5].trim(),
       teamA: fixApostrophe(r[6].trim().replace(/\s*\([^)]+\)\s*$/, '')),
       teamB: fixApostrophe(r[7].trim().replace(/\s*\([^)]+\)\s*$/, '')),
@@ -394,17 +412,39 @@ function renderFilters() {
   });
 }
 
+// ─── Rendering — location filter pills (Jogos tab) ────────────────────────────
+function renderLocationFilters() {
+  const container = document.getElementById('location-filters');
+  if (!container) return;
+  const labels = ['Todas', 'Quadra 1', 'Quadra 2'];
+  container.innerHTML = labels.map(l =>
+    `<button class="pill-filter ${l === activeLocation ? 'pill-filter--active' : ''}"
+             data-location="${l}">${l}</button>`
+  ).join('');
+  container.querySelectorAll('.pill-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeLocation = btn.dataset.location;
+      container.querySelectorAll('.pill-filter').forEach(b =>
+        b.classList.toggle('pill-filter--active', b.dataset.location === activeLocation)
+      );
+      renderMatches(lastMatches);
+    });
+  });
+}
+
 // ─── Rendering — matches ──────────────────────────────────────────────────────
 function renderMatches(matches) {
   const list = document.getElementById('matches-list');
   if (!list) return;
 
-  const pool = activeFilter === 'Todos'
-    ? matches
-    : matches.filter(m => m.filter === activeFilter);
+  const pool = matches.filter(m =>
+    (activeFilter   === 'Todos' || m.filter === activeFilter) &&
+    (activeLocation === 'Todas' || m.local  === activeLocation)
+  );
 
   if (!pool.length) {
-    list.innerHTML = `<p class="matches-empty">Nenhum jogo encontrado${activeFilter !== 'Todos' ? ' nesta modalidade' : ''}.</p>`;
+    const isFiltered = activeFilter !== 'Todos' || activeLocation !== 'Todas';
+    list.innerHTML = `<p class="matches-empty">Nenhum jogo encontrado${isFiltered ? ' com esses filtros' : ''}.</p>`;
     if (window.ScrollTrigger) ScrollTrigger.refresh();
     return;
   }
@@ -412,11 +452,12 @@ function renderMatches(matches) {
   const byDay = {};
   pool.forEach(m => { (byDay[m.dia] ??= []).push(m); });
 
-  list.innerHTML = DAY_ORDER
+  const { order, pastSet } = orderedDays();
+  list.innerHTML = order
     .filter(d => byDay[d])
     .map(day => {
       const sorted = byDay[day].slice().sort((a, b) => a.hora.localeCompare(b.hora));
-      return `<div class="day-group">
+      return `<div class="day-group${pastSet.has(day) ? ' day-group--past' : ''}">
         <h3 class="day-label">${DAY_LABELS[day]}</h3>
         <div class="day-matches">
           ${sorted.map(m => {
@@ -760,6 +801,7 @@ function renderClassFilters() {
 // ─── Page-scoped init ────────────────────────────────────────────────────────
 function initGames() {
   renderFilters();
+  renderLocationFilters();
   showSkeleton();
   refreshGames();
   setInterval(refreshGames, REFRESH_MS);
@@ -1051,9 +1093,9 @@ function renderPlayerSchedule(gradeObj, playerName, matches) {
       <span class="cronograma-player-name">${playerName}</span>
       <span class="cronograma-player-meta">${gradeObj.label} &bull; ${sportLabels.join(' &bull; ')}</span>
     </div>
-    ${DAY_ORDER.filter(d => byDay[d]).map(day => {
+    ${(() => { const { order, pastSet } = orderedDays(); return order.filter(d => byDay[d]).map(day => {
       const sorted = byDay[day].slice().sort((a, b) => a.hora.localeCompare(b.hora));
-      return `<div class="day-group">
+      return `<div class="day-group${pastSet.has(day) ? ' day-group--past' : ''}">
         <h3 class="day-label">${DAY_LABELS[day]}</h3>
         <div class="day-matches">
           ${sorted.map(m => {
@@ -1075,7 +1117,7 @@ function renderPlayerSchedule(gradeObj, playerName, matches) {
           }).join('')}
         </div>
       </div>`;
-    }).join('')}`;
+    }).join(''); })()}`;
 
   if (window.ScrollTrigger) ScrollTrigger.refresh();
 }
