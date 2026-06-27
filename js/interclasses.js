@@ -488,6 +488,43 @@ async function fetchMataMataCalendar() {
   return map;
 }
 
+// ─── Mata-Mata — cronograma flattener ────────────────────────────────────────
+
+// Compact round labels used in "Meu Cronograma" match rows.
+const MM_PHASE_LABEL = { QF: 'Quartas', SF: 'Semi', Final: 'Final' };
+
+// Flatten the bracket + calendar into the same flat shape renderPlayerSchedule()
+// expects: { dia, hora, local, teamA, teamB, scoreA, scoreB, filter, short, phase }.
+// The 'filter' value matches SPORT_TO_FILTER entries so getPlayerTokens() routes correctly.
+async function fetchMataMataFixtures() {
+  const [bracket, calMap] = await Promise.all([fetchMataMataBracket(), fetchMataMataCalendar()]);
+  const fixtures = [];
+
+  for (const { modality, matches } of bracket) {
+    // "Futebol — Div. A" → "Futebol", "Tênis de Mesa" → "Tênis de Mesa" (pass-through)
+    const filter = modality.split(' — Div. ')[0];
+    const short  = mmShortLabel(modality);   // mmShortLabel is a function declaration → hoisted
+
+    for (const mt of matches) {
+      const cal = calMap.get(`${modality}||${mt.fase}`);
+      fixtures.push({
+        dia:    cal ? (MM_DAY_ABBR[cal.dia] || cal.dia) : '',
+        hora:   cal ? cal.hora  : '',
+        local:  cal ? cal.local : '',
+        teamA:  mt.teamA  || 'A definir',
+        teamB:  mt.teamB  || 'A definir',
+        scoreA: mt.scoreA,
+        scoreB: mt.scoreB,
+        filter,
+        short,
+        phase:  MM_PHASE_LABEL[mt.round] || mt.round,
+      });
+    }
+  }
+
+  return fixtures;
+}
+
 // ─── Mata-Mata — render ───────────────────────────────────────────────────────
 
 const MM_ROUND_LABEL = { QF: 'Quartas de Final', SF: 'Semifinais', Final: 'Final' };
@@ -699,6 +736,8 @@ function renderMatches(matches) {
 
   if (window.ScrollTrigger) ScrollTrigger.refresh();
 }
+
+
 
 // ─── Groups — fetch full sport tabs & parse "Grupo N" sections ────────────────
 const SPORTS = [...new Set(SPORT_TABS.map(s => s.filter))];
@@ -1357,7 +1396,7 @@ function renderPlayerSchedule(gradeObj, playerName, matches) {
             const localTag = m.local ? `<span class="match-local">${m.local}</span>` : '';
             return `<div class="match-row${isDone ? ' match-row--done' : ''}">
               <span class="match-time">${m.hora}</span>
-              <span class="match-sport-tag">${m.short}</span>
+              <span class="match-sport-tag">${m.short}${m.phase ? ` · ${m.phase}` : ''}</span>
               ${localTag}
               <span class="match-teams">${teamsHTML}</span>
               ${badge}
@@ -1429,8 +1468,8 @@ function initCronograma() {
     results.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
-  // Pre-fetch matches in the background so search is instant
-  fetchAllMatches()
+  // Pre-fetch knockout fixtures in the background so search is instant
+  fetchMataMataFixtures()
     .then(m => { cronogramaMatches = m; })
     .catch(() => { cronogramaMatches = []; });
 }
