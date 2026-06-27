@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Explorar — Tercezenha 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+  <style>
+    /* ─── Hub page layout ─── */
+    .hub-section {
+      padding: 7rem 6vw 5rem;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    .hub-eyebrow {
+      display: block;
+      font-family: var(--font-display);
+      font-size: 0.7rem;
+      letter-spacing: 0.35em;
+      color: var(--purple-light);
+      opacity: 0.7;
+      margin-bottom: 1.2rem;
+    }
+
+    .hub-headline {
+      font-family: var(--font-display);
+      font-size: clamp(3rem, 6vw, 5.5rem);
+      line-height: 0.92;
+      letter-spacing: 0.04em;
+      color: var(--text);
+      margin-bottom: 4rem;
+    }
+
+    /* ─── Three-card grid ─── */
+    .hub-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .hub-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+      aspect-ratio: 3 / 4;
+      text-decoration: none;
+      background: #100e1a;
+    }
+
+    .hub-card__img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                  filter 0.5s ease;
+      filter: brightness(0.72) saturate(0.85);
+    }
+
+    .hub-card:hover .hub-card__img {
+      transform: scale(1.05);
+      filter: brightness(0.55) saturate(1);
+    }
+
+    /* gradient overlay */
+    .hub-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to top,
+        rgba(8, 7, 14, 0.92) 0%,
+        rgba(8, 7, 14, 0.45) 45%,
+        transparent 75%
+      );
+      transition: opacity 0.4s;
+    }
+
+    .hub-card__body {
+      position: relative;
+      z-index: 2;
+      padding: 2rem 1.75rem 2.25rem;
+    }
+
+    .hub-card__index {
+      display: block;
+      font-family: var(--font-display);
+      font-size: 0.68rem;
+      letter-spacing: 0.3em;
+      color: var(--purple-light);
+      opacity: 0.65;
+      margin-bottom: 0.55rem;
+    }
+
+    .hub-card__title {
+      font-family: var(--font-display);
+      font-size: clamp(2.4rem, 3.5vw, 3.8rem);
+      line-height: 0.9;
+      letter-spacing: 0.04em;
+      color: var(--text);
+      margin-bottom: 0.6rem;
+    }
+
+    .hub-card__desc {
+      font-size: 0.78rem;
+      line-height: 1.55;
+      color: var(--text-muted);
+      max-width: 28ch;
+      margin-bottom: 1.25rem;
+    }
+
+    .hub-card__arrow {
+      display: inline-block;
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--purple-light);
+      border-top: 1px solid rgba(167, 139, 250, 0.25);
+      padding-top: 0.75rem;
+      transition: transform 0.3s ease, color 0.3s ease;
+    }
+
+    .hub-card:hover .hub-card__arrow {
+      transform: translateX(5px);
+      color: #c4b5fd;
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 900px) {
+      .hub-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .hub-grid .hub-card:last-child {
+        grid-column: 1 / -1;
+        aspect-ratio: 16 / 7;
+      }
+    }
+
+    @media (max-width: 580px) {
+      .hub-section { padding: 5rem 5vw 4rem; }
+      .hub-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      .hub-grid .hub-card:last-child {
+        grid-column: auto;
+        aspect-ratio: 3 / 4;
+      }
+      .hub-card { aspect-ratio: 3 / 4; }
+    }
+  </style>
+</head>
+<body>
+
+  <header id="site-header">
+    <a class="header-logo" href="index.html">TERCEZENHA</a>
+    <nav>
+      <a href="trotes.html">Trotes</a>
+      <a href="turma.html">Turma</a>
+      <a href="interclasses.html">Interclasses</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hub-section">
+      <span class="hub-eyebrow">Tercezenha 2026</span>
+      <h1 class="hub-headline">TUDO O<br>QUE FOMOS.</h1>
+
+      <div class="hub-grid" data-reveal-group>
+
+        <a href="trotes.html" class="hub-card">
+          <img class="hub-card__img" src="Trotes/Brega/Capa_Brega.JPG" alt="Trotes" />
+          <div class="hub-card__body">
+            <span class="hub-card__index">01</span>
+            <h2 class="hub-card__title">TROTES</h2>
+            <p class="hub-card__desc">Os dias temáticos que definiram o ano — looks, risos e muito caráter.</p>
+            <span class="hub-card__arrow">Ver trotes &rarr;</span>
+          </div>
+        </a>
+
+        <a href="turma.html" class="hub-card">
+          <img class="hub-card__img" src="Imagem Turma.jpeg" alt="Turma" />
+          <div class="hub-card__body">
+            <span class="hub-card__index">02</span>
+            <h2 class="hub-card__title">TURMA</h2>
+            <p class="hub-card__desc">Cada rosto, cada nome — a classe que fez 2026 valer a pena.</p>
+            <span class="hub-card__arrow">Ver turma &rarr;</span>
+          </div>
+        </a>
+
+        <a href="interclasses.html" class="hub-card">
+          <img class="hub-card__img" src="interclassesCapa.png" alt="Interclasses" />
+          <div class="hub-card__body">
+            <span class="hub-card__index">03</span>
+            <h2 class="hub-card__title">INTER&shy;CLASSES</h2>
+            <p class="hub-card__desc">Jogos, grupos, times e campeões — a competição que parou a escola.</p>
+            <span class="hub-card__arrow">Ver interclasses &rarr;</span>
+          </div>
+        </a>
+
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a href="index.html" class="footer-logo">TERCEZENHA</a>
+    <nav>
+      <a href="trotes.html">Trotes</a>
+      <a href="turma.html">Turma</a>
+      <a href="interclasses.html">Interclasses</a>
+    </nav>
+    <span class="footer-copy">Tercezenha &copy; 2026</span>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1/dist/lenis.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/ScrollTrigger.min.js"></script>
+  <script src="js/pages.js"></script>
+  <script src="js/nav.js"></script>
+</body>
+</html>
