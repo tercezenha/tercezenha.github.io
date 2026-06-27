@@ -1704,6 +1704,14 @@
 
 /* ─── Mata-Mata bracket ───────────────────────────────────────── */
 
+/* View toggle (Chaves / Por Local) — reuses .pill-filter button styling */
+.mm-view-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
 /* Timestamp — same style as #last-updated */
 #mm-last-updated {
   font-size: 0.62rem;

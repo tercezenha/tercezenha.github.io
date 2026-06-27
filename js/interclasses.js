@@ -190,6 +190,8 @@ let lastGroups        = [];   // [{ sport, divisions: [{ label, groups: [{ name,
 let lastBracket       = [];   // [{ modality, champion, matches:[{ fase, round, teamA, teamB, scoreA, scoreB, penA, penB, winner }] }]
 let lastCalMap        = new Map(); // "modality||fase" → { dia, hora, local }
 let activeMM          = null; // currently selected modality name
+let activeMMView      = 'chaves';  // 'chaves' (bracket) | 'local' (games-by-location list)
+let lastMMFixtures    = [];        // flattened knockout games, for the "Por Local" view
 
 // Normalise player/team names from sheet data: replace backslash+apostrophe,
 // backslash+backtick, or bare backtick with a plain apostrophe.
@@ -496,8 +498,9 @@ const MM_PHASE_LABEL = { QF: 'Quartas', SF: 'Semi', Final: 'Final' };
 // Flatten the bracket + calendar into the same flat shape renderPlayerSchedule()
 // expects: { dia, hora, local, teamA, teamB, scoreA, scoreB, filter, short, phase }.
 // The 'filter' value matches SPORT_TO_FILTER entries so getPlayerTokens() routes correctly.
-async function fetchMataMataFixtures() {
-  const [bracket, calMap] = await Promise.all([fetchMataMataBracket(), fetchMataMataCalendar()]);
+// Flatten an already-fetched bracket + calendar into the flat match shape (no network).
+// Shared by the cronograma and the Mata-Mata "Por Local" list view.
+function flattenMataMata(bracket, calMap) {
   const fixtures = [];
 
   for (const { modality, matches } of bracket) {
@@ -523,6 +526,11 @@ async function fetchMataMataFixtures() {
   }
 
   return fixtures;
+}
+
+async function fetchMataMataFixtures() {
+  const [bracket, calMap] = await Promise.all([fetchMataMataBracket(), fetchMataMataCalendar()]);
+  return flattenMataMata(bracket, calMap);
 }
 
 // ─── Mata-Mata — render ───────────────────────────────────────────────────────
@@ -642,6 +650,88 @@ function renderMMBracket() {
   }
 
   board.innerHTML = html;
+  if (window.ScrollTrigger) ScrollTrigger.refresh();
+}
+
+// Dispatcher: render whichever Mata-Mata view is active. Called on every refresh
+// and on toggle clicks, so view + modality selections survive the 60s polling.
+function renderMM() {
+  renderMMViewToggle();
+  if (activeMMView === 'local') {
+    document.getElementById('mata-mata-filters').innerHTML = '';   // location list owns its grouping
+    renderMMByLocation();
+  } else {
+    renderMMFilters();
+    renderMMBracket();
+  }
+}
+
+// Two-button segmented toggle (Chaves / Por Local) into #mm-view-toggle.
+function renderMMViewToggle() {
+  const el = document.getElementById('mm-view-toggle');
+  if (!el) return;
+  const views = [['chaves', 'Chaves'], ['local', 'Por Local']];
+  el.innerHTML = views.map(([v, label]) =>
+    `<button class="pill-filter ${v === activeMMView ? 'pill-filter--active' : ''}"
+             data-mmview="${v}">${label}</button>`
+  ).join('');
+  el.querySelectorAll('.pill-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.mmview === activeMMView) return;
+      activeMMView = btn.dataset.mmview;
+      renderMM();
+    });
+  });
+}
+
+// Organizer view: every knockout game grouped by venue, day+time ordered.
+function renderMMByLocation() {
+  const board = document.getElementById('mata-mata-board');
+  if (!board) return;
+
+  if (!lastMMFixtures.length) {
+    board.innerHTML = '<p class="matches-empty">Nenhum jogo encontrado.</p>';
+    return;
+  }
+
+  const byLocal = {};
+  for (const m of lastMMFixtures) {
+    const loc = m.local || 'A definir';
+    (byLocal[loc] ??= []).push(m);
+  }
+
+  const { order } = orderedDays();
+  const dayRank = d => { const i = order.indexOf(d); return i === -1 ? 99 : i; };
+  const locals  = Object.keys(byLocal).sort((a, b) => a.localeCompare(b, 'pt'));
+
+  board.innerHTML = locals.map(loc => {
+    const games = byLocal[loc].slice().sort((a, b) =>
+      dayRank(a.dia) - dayRank(b.dia) || a.hora.localeCompare(b.hora)
+    );
+    return `<div class="day-group">
+      <h3 class="day-label">${loc}</h3>
+      <div class="day-matches">
+        ${games.map(m => {
+          const isDone = m.scoreA !== '' && m.scoreB !== '';
+          const teamsHTML = isDone
+            ? `${m.teamA} <em class="match-score">${m.scoreA}&thinsp;×&thinsp;${m.scoreB}</em> ${m.teamB}`
+            : `${m.teamA}<em> × </em>${m.teamB}`;
+          const badge = isDone
+            ? `<span class="match-badge match-badge--done">Resultado</span>`
+            : `<span class="match-badge match-badge--pending">Pendente</span>`;
+          const day = DAY_LABELS[m.dia] || m.dia;
+          return `<div class="match-row${isDone ? ' match-row--done' : ''}">
+            <span class="match-time">${m.hora}</span>
+            <span class="match-sport-tag">${m.short}${m.phase ? ` · ${m.phase}` : ''}</span>
+            <span class="match-local">${day}</span>
+            <span class="match-teams">${teamsHTML}</span>
+            ${badge}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
   if (window.ScrollTrigger) ScrollTrigger.refresh();
 }
 
@@ -1010,12 +1100,12 @@ function updateMMTimestamp() {
 async function refreshMataMata() {
   try {
     const [bracket, calMap] = await Promise.all([fetchMataMataBracket(), fetchMataMataCalendar()]);
-    lastBracket = bracket;
-    lastCalMap  = calMap;
+    lastBracket    = bracket;
+    lastCalMap     = calMap;
+    lastMMFixtures = flattenMataMata(bracket, calMap);
     // Set default active modality on first load; preserve user selection on refreshes.
     if (!activeMM && bracket.length > 0) activeMM = bracket[0].modality;
-    renderMMFilters();
-    renderMMBracket();
+    renderMM();
     updateMMTimestamp();
   } catch (err) {
     console.warn('Mata-Mata refresh failed:', err);
