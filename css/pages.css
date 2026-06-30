@@ -1,5 +1,15 @@
 /* ─── Tercezenha — Sub-page styles ─────────────────────────── */
 
+/* ─── Gold accent tokens (Finais page) ───────────────────────── */
+:root {
+  --gold:        #E7B84B;
+  --gold-light:  #F5D98A;
+  --gold-deep:   #A97B1C;
+  --gold-dim:    #C9922C;
+  --gold-glow:   rgba(231, 184, 75, 0.28);
+  --gold-glow-lg:rgba(231, 184, 75, 0.10);
+}
+
 /* ─── Active nav ─────────────────────────────────────────────── */
 #site-header nav a.active { color: var(--text); }
 #site-header nav a.active::after { transform: scaleX(1); }
@@ -781,9 +791,9 @@
 /* ─── Interclasses hub (navigation buttons) ──────────────────── */
 .ic-hub-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.25rem;
-  max-width: 780px;
+  max-width: 920px;
   margin: 0 auto;
 }
 
@@ -1875,4 +1885,157 @@
   .mm-team-name { font-size: 0.76rem; }
   .mm-score  { font-size: 0.88rem; }
   .mm-round-label { font-size: 0.72rem; }
+}
+
+/* ─── Finais page — gold theme ───────────────────────────────── */
+
+/* Hero: swap the purple radial glow for gold */
+.page-finais .page-hero::before {
+  background: radial-gradient(ellipse at center,
+    rgba(231, 184, 75, 0.09) 0%,
+    rgba(231, 184, 75, 0.03) 45%,
+    transparent 70%);
+}
+
+/* Title gradient: white → gold-light → gold */
+.page-finais .page-title {
+  background: linear-gradient(160deg, #ffffff 0%, #f9edcc 35%, var(--gold-light) 65%, var(--gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 36px rgba(231, 184, 75, 0.14));
+}
+
+/* Court note: gold left-accent */
+.court-note--gold {
+  border-left-color: var(--gold-dim);
+}
+
+.court-note--gold .court-note__label {
+  color: var(--gold-light);
+}
+
+/* Timestamp */
+#finais-last-updated {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  opacity: 0.55;
+  white-space: nowrap;
+  padding-top: 0.45rem;
+}
+
+/* Toolbar — no filters, just the timestamp */
+.matches-toolbar--finais {
+  justify-content: flex-end;
+  margin-bottom: 1.5rem;
+}
+
+/* ─── Single-leg final rows (gold sport tag + score) ─────────── */
+.finais-sport-tag {
+  color: var(--gold-light);
+  opacity: 0.85;
+}
+
+.finais-score {
+  color: var(--gold-light) !important;
+}
+
+.finais-row--done {
+  background: rgba(231, 184, 75, 0.04);
+}
+
+.finais-row--done:hover {
+  background: rgba(231, 184, 75, 0.08);
+}
+
+/* ─── Aggregate card (two-leg finals) ────────────────────────── */
+.finais-agg-card {
+  border-color: rgba(231, 184, 75, 0.2);
+  background: rgba(231, 184, 75, 0.02);
+  margin-bottom: 1.5rem;
+  max-width: 560px;
+}
+
+.finais-agg-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(231, 184, 75, 0.12);
+}
+
+.finais-agg-sport {
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold-light);
+  opacity: 0.85;
+}
+
+.finais-agg-fase {
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  opacity: 0.65;
+}
+
+/* Hora hint inside the leg label */
+.finais-leg-hora {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  opacity: 0.5;
+  line-height: 1.2;
+  margin-top: 0.15rem;
+}
+
+/* TBD score cell */
+.final-col-score--tbd {
+  color: var(--text-muted);
+  opacity: 0.3;
+}
+
+/* Aggregate row: gold accent */
+.finais-agg-row .final-col-label {
+  color: var(--gold-light) !important;
+}
+
+.finais-agg-score {
+  color: var(--gold-light) !important;
+  font-size: 1.25rem !important;
+}
+
+/* Winner team name highlights in gold */
+.finais-winner--active {
+  color: var(--gold-light);
+  font-weight: 600;
+}
+
+/* Champion banner: gold */
+.finais-champion {
+  border-top-color: rgba(231, 184, 75, 0.25) !important;
+}
+
+.finais-champion-label {
+  color: var(--gold-dim) !important;
+  opacity: 0.85 !important;
+}
+
+.finais-champion-name {
+  background: linear-gradient(140deg, #ffffff 30%, var(--gold-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Mobile — aggregate cards ───────────────────────────────── */
+@media (max-width: 600px) {
+  .finais-agg-card { padding: 1.25rem 1.25rem; }
+  .finais-agg-header { margin-bottom: 1rem; padding-bottom: 0.6rem; }
 }

@@ -4,10 +4,11 @@ const CONTROL_ID  = '1eejXQCdkVlcgaRCT-aZBUc4jpNMRDNbIZMBV8mS_d04'; // Results s
 const SCHEDULE_ID  = '1njQ8QBw7acmxCVo8hzeGvFOxzN2gqWg7UhGF7TD7Z3I'; // Schedule sheet
 const SCHEDULE_GID = '501903747';                                      // "CRONOGRAMA GERAL" tab
 
-const MATAMATA_ID         = '1A-inizQnfbHBa4DxcvI9LCTIMf826hah6MweHWZBIUI'; // Mata-Mata sheet
-const MATAMATA_RESULT_GID = '1314677141';  // "Resultados" tab — bracket source
-const MATAMATA_CAL_GID    = '1225699793';  // "Calendário" tab — day/time/venue per match
-const MATAMATA_CHAMP_GID  = '324313314';   // "Campeões" tab — champion per modality
+// Finais sheet (replaces the old Mata-Mata sheet)
+const FINAIS_ID         = '1E0yDmlD5mHNxfCtjaRY5hmqO6CJu7i3bilUQTvhE8KI';
+const FINAIS_RESULT_GID = '987065534';   // "Resultados" tab — scores + bracket
+const FINAIS_CAL_GID    = '509322914';   // "Calendário das Finais" tab — day/time/venue
+const FINAIS_CHAMP_GID  = '1926301037';  // "Campeões" tab — champion per modality
 
 // ─── Team rosters (from "Times do Interclasses" document) ─────────────────────
 const TEAMS = {
@@ -186,12 +187,9 @@ let lastMatches       = [];
 let lastChampions     = [];
 let lastGroups        = [];   // [{ sport, divisions: [{ label, groups: [{ name, teams[], matches[] }] }] }]
 
-// Mata-Mata state
-let lastBracket       = [];   // [{ modality, champion, matches:[{ fase, round, teamA, teamB, scoreA, scoreB, penA, penB, winner }] }]
-let lastCalMap        = new Map(); // "modality||fase" → { dia, hora, local }
-let activeMM          = null; // currently selected modality name
-let activeMMView      = 'chaves';  // 'chaves' (bracket) | 'local' (games-by-location list)
-let lastMMFixtures    = [];        // flattened knockout games, for the "Por Local" view
+// Finais state
+let lastFinaisBracket = [];   // [{ modality, champion, matches:[...] }]
+let lastFinaisCalMap  = new Map(); // "modality||fase" → { hora, local }
 
 // Normalise player/team names from sheet data: replace backslash+apostrophe,
 // backslash+backtick, or bare backtick with a plain apostrophe.
@@ -224,8 +222,8 @@ function parseCSV(text) {
 
 // ─── Data fetching ────────────────────────────────────────────────────────────
 async function fetchChampions() {
-  const params = new URLSearchParams({ tqx: 'out:csv', headers: '0', gid: MATAMATA_CHAMP_GID });
-  const url    = `https://docs.google.com/spreadsheets/d/${MATAMATA_ID}/gviz/tq?${params}`;
+  const params = new URLSearchParams({ tqx: 'out:csv', headers: '0', gid: FINAIS_CHAMP_GID });
+  const url    = `https://docs.google.com/spreadsheets/d/${FINAIS_ID}/gviz/tq?${params}`;
   const r      = await fetch(url);
   const rows   = parseCSV(await r.text());
   const hIdx   = rows.findIndex(r => r[0] === 'Modalidade');
@@ -405,14 +403,17 @@ function renderChampions(data) {
   if (window.ScrollTrigger) ScrollTrigger.refresh();
 }
 
-// ─── Mata-Mata — fetch ────────────────────────────────────────────────────────
+// ─── Finais — fetch ───────────────────────────────────────────────────────────
 
-// Fetch the bracket data from the Resultados tab. Returns an array of per-modality
-// objects: { modality, champion, matches:[{ fase, round, teamA, teamB, scoreA,
-// scoreB, penA, penB, winner }] }.  round ∈ 'QF' | 'SF' | 'Final'.
-async function fetchMataMataBracket() {
-  const params = new URLSearchParams({ tqx: 'out:csv', headers: '0', gid: MATAMATA_RESULT_GID });
-  const url = `https://docs.google.com/spreadsheets/d/${MATAMATA_ID}/gviz/tq?${params}`;
+// Maps modality label → { short, filter } for the Finais sheet modality strings,
+// which match SPORT_TABS[].label exactly.
+const FINAIS_LABEL_MAP = Object.fromEntries(SPORT_TABS.map(s => [s.label, { short: s.short, filter: s.filter }]));
+
+// Fetch the Resultados tab from the Finais sheet.
+// Returns [{ modality, champion, matches:[{ fase, teamA, scoreA, scoreB, teamB, penA, penB, winner }] }].
+async function fetchFinaisBracket() {
+  const params = new URLSearchParams({ tqx: 'out:csv', headers: '0', gid: FINAIS_RESULT_GID });
+  const url = `https://docs.google.com/spreadsheets/d/${FINAIS_ID}/gviz/tq?${params}`;
   const r = await fetch(url);
   const rows = parseCSV(await r.text());
 
@@ -423,12 +424,10 @@ async function fetchMataMataBracket() {
   for (const row of rows) {
     const col0 = (row[0] || '').trim();
     if (!col0) continue;
-
-    if (col0 === 'Fase') continue;                    // column header row
+    if (col0 === 'Fase') continue;  // column header row
 
     if (col0.startsWith('CAMPEÃO')) {
       if (current) {
-        // champion may be in the Vencedor (col 7) or Equipe A (col 1) cell
         current.champion = fixApostrophe(((row[7] || '') || (row[1] || '')).trim());
         modalities.push(current);
         current = null;
@@ -438,10 +437,8 @@ async function fetchMataMataBracket() {
 
     if (phaseRe.test(col0)) {
       if (current) {
-        const round = /^QF/i.test(col0) ? 'QF' : /^SF/i.test(col0) ? 'SF' : 'Final';
         current.matches.push({
           fase:   col0,
-          round,
           teamA:  fixApostrophe((row[1] || '').trim()),
           scoreA: (row[2] || '').trim(),
           scoreB: (row[3] || '').trim(),
@@ -454,285 +451,310 @@ async function fetchMataMataBracket() {
       continue;
     }
 
-    // Any other non-empty col0 that is not a recognised keyword → new modality block.
+    // New modality block.
     if (current) modalities.push(current);
     current = { modality: fixApostrophe(col0), champion: '', matches: [] };
   }
   if (current) modalities.push(current);
 
-  // Discard header/title rows that slipped through (they have no matches).
   return modalities.filter(m => m.matches.length > 0);
 }
 
-// Fetch the Calendário tab and build a lookup map keyed "modality||fase"
-// → { dia, hora, local }.  Columns: Dia(0) · Início(1) · Fim(2) · Local(3)
-// · Modalidade(4) · Fase(5) · Partida(6).  First three rows are title/notes/header.
-async function fetchMataMataCalendar() {
-  const params = new URLSearchParams({ tqx: 'out:csv', headers: '0', gid: MATAMATA_CAL_GID });
-  const url = `https://docs.google.com/spreadsheets/d/${MATAMATA_ID}/gviz/tq?${params}`;
+// Normalise calendar fase labels to the same form used in Resultados.
+// "Final - ida" → "Final (Ida)", "Final - Vlt" → "Final (Volta)",
+// "SF1 (Ida)" → "SF1 (Ida)" (pass-through).
+function normCalFase(fase) {
+  return fase
+    .replace(/\s*-\s*ida\s*/i, ' (Ida)')
+    .replace(/\s*-\s*vlt\s*/i, ' (Volta)')
+    .replace(/\s*-\s*volta\s*/i, ' (Volta)')
+    .trim();
+}
+
+// Fetch the Calendário das Finais tab.
+// Returns Map keyed "modality||canonicalFase" → { hora, local }.
+// Columns: Dia(0) · Início(1) · Fim(2) · Local(3) · Modalidade(4) · Fase(5) · Partida(6).
+// First three rows are title / notes / blank; data starts at row 4 (0-indexed: 3).
+async function fetchFinaisCalendar() {
+  const params = new URLSearchParams({ tqx: 'out:csv', headers: '0', gid: FINAIS_CAL_GID });
+  const url = `https://docs.google.com/spreadsheets/d/${FINAIS_ID}/gviz/tq?${params}`;
   const r = await fetch(url);
   const rows = parseCSV(await r.text());
 
   const map = new Map();
   for (const row of rows.slice(3)) {
     const mod  = fixApostrophe((row[4] || '').trim());
-    const fase = (row[5] || '').trim();
+    const fase = normCalFase((row[5] || '').trim());
     if (!mod || !fase) continue;
     const key = `${mod}||${fase}`;
     if (!map.has(key)) {
       map.set(key, {
-        dia:   (row[0] || '').trim(),
         hora:  (row[1] || '').trim(),
-        local: (row[3] || '').trim(),
+        local: relabelLocal((row[3] || '').trim()),
       });
     }
   }
   return map;
 }
 
-// ─── Mata-Mata — cronograma flattener ────────────────────────────────────────
+// ─── Finais — build items ────────────────────────────────────────────────────
 
-// Compact round labels used in "Meu Cronograma" match rows.
-const MM_PHASE_LABEL = { QF: 'Quartas', SF: 'Semi', Final: 'Final' };
+// Modalities that use two-leg ties in their finals/semis.
+// Value is the set of fase prefixes that are two-leg for that modality.
+const FINAIS_TWO_LEG = {
+  'Futebol — Div. A': ['Final'],
+  'Futebol — Div. B': ['SF1', 'SF2', 'Final'],
+};
 
-// Flatten the bracket + calendar into the same flat shape renderPlayerSchedule()
-// expects: { dia, hora, local, teamA, teamB, scoreA, scoreB, filter, short, phase }.
-// The 'filter' value matches SPORT_TO_FILTER entries so getPlayerTokens() routes correctly.
-// Flatten an already-fetched bracket + calendar into the flat match shape (no network).
-// Shared by the cronograma and the Mata-Mata "Por Local" list view.
-function flattenMataMata(bracket, calMap) {
-  const fixtures = [];
+// Modalities to skip entirely on the Finais page (decided outside the bracket).
+const FINAIS_SKIP = new Set(['Futebol Feminino']);
 
-  for (const { modality, matches } of bracket) {
-    // "Futebol — Div. A" → "Futebol", "Tênis de Mesa" → "Tênis de Mesa" (pass-through)
-    const filter = modality.split(' — Div. ')[0];
-    const short  = mmShortLabel(modality);   // mmShortLabel is a function declaration → hoisted
+// Build the list of items for the Finais page from bracket + calendar data.
+// Two-leg ties → one aggregate item; single-leg finals → one row item.
+// Returns items sorted by hora (ascending).
+function buildFinaisItems(bracket, calMap) {
+  const items = [];
 
-    for (const mt of matches) {
-      const cal = calMap.get(`${modality}||${mt.fase}`);
-      fixtures.push({
-        dia:    cal ? (MM_DAY_ABBR[cal.dia] || cal.dia) : '',
-        hora:   cal ? cal.hora  : '',
-        local:  cal ? cal.local : '',
-        teamA:  mt.teamA  || 'A definir',
-        teamB:  mt.teamB  || 'A definir',
-        scoreA: mt.scoreA,
-        scoreB: mt.scoreB,
-        filter,
-        short,
-        phase:  MM_PHASE_LABEL[mt.round] || mt.round,
+  for (const { modality, champion, matches } of bracket) {
+    if (FINAIS_SKIP.has(modality)) continue;
+    const meta = FINAIS_LABEL_MAP[modality] || { short: modality, filter: modality };
+    const twoLegPrefixes = FINAIS_TWO_LEG[modality] || [];
+
+    // Group matches: detect two-leg ties by finding (Ida) + (Volta) pairs sharing a prefix.
+    // All other matches are single-leg.
+    const grouped = {};  // prefixKey → [idaMatch, voltaMatch]
+    const singles = [];
+
+    for (const match of matches) {
+      const idaMatch   = /\(Ida\)/i.test(match.fase);
+      const voltaMatch = /\(Volta\)/i.test(match.fase);
+      if (idaMatch || voltaMatch) {
+        // Extract the base fase (e.g. "Final", "SF1") by stripping the leg suffix.
+        const base = match.fase.replace(/\s*\((Ida|Volta)\)\s*/i, '').trim();
+        if (twoLegPrefixes.some(p => base.startsWith(p))) {
+          grouped[base] ??= {};
+          if (idaMatch) grouped[base].ida = match;
+          else           grouped[base].volta = match;
+          continue;
+        }
+      }
+      // Single-leg match — but only include "Final" round (not QF/SF from prior rounds).
+      if (/^Final/i.test(match.fase) || twoLegPrefixes.some(p => match.fase.startsWith(p))) {
+        singles.push(match);
+      }
+    }
+
+    // Single-leg final items.
+    for (const match of singles) {
+      const calKey = `${modality}||${match.fase}`;
+      const cal    = calMap.get(calKey) || {};
+      const isDone = match.scoreA !== '' && match.scoreB !== '';
+      items.push({
+        type:     'single',
+        modality, short: meta.short,
+        fase:     match.fase,
+        hora:     cal.hora  || '',
+        local:    cal.local || '',
+        teamA:    match.teamA  || 'A definir',
+        teamB:    match.teamB  || 'A definir',
+        scoreA:   match.scoreA,
+        scoreB:   match.scoreB,
+        winner:   match.winner,
+        isDone,
+        champion: isDone && match.winner ? match.winner : (champion || ''),
+      });
+    }
+
+    // Two-leg aggregate items.
+    for (const [base, legs] of Object.entries(grouped)) {
+      const ida    = legs.ida   || {};
+      const volta  = legs.volta || {};
+
+      const idaDone   = (ida.scoreA   || '') !== '' && (ida.scoreB   || '') !== '';
+      const voltaDone = (volta.scoreA || '') !== '' && (volta.scoreB || '') !== '';
+      const bothDone  = idaDone && voltaDone;
+
+      // Aggregate score: Ida's teamA is home; Volta swaps sides.
+      // teamA in Final(Volta) is the away team from Ida, so we need to match Ida's A/B.
+      let aggA = '', aggB = '';
+      let aggWinner = '';
+      let penA = '', penB = '';
+      if (bothDone) {
+        const iaA = parseInt(ida.scoreA, 10) || 0;
+        const iaB = parseInt(ida.scoreB, 10) || 0;
+        // Volta: teamA = Ida's teamB, teamB = Ida's teamA → re-flip for Ida's perspective.
+        const vA  = parseInt(volta.scoreB, 10) || 0;  // volta.scoreB = Ida's teamA
+        const vB  = parseInt(volta.scoreA, 10) || 0;  // volta.scoreA = Ida's teamB
+        aggA = String(iaA + vA);
+        aggB = String(iaB + vB);
+        penA = volta.penA || '';
+        penB = volta.penB || '';
+        if (penA || penB) {
+          aggWinner = parseInt(penA, 10) > parseInt(penB, 10) ? (ida.teamA || '') : (ida.teamB || '');
+        } else {
+          aggWinner = parseInt(aggA) > parseInt(aggB) ? (ida.teamA || '') : (parseInt(aggA) < parseInt(aggB) ? (ida.teamB || '') : '');
+        }
+      }
+
+      // Calendar: anchor hora/local on the Ida leg.
+      const calKeyIda = `${modality}||${base} (Ida)`;
+      const cal = calMap.get(calKeyIda) || {};
+
+      // Human-readable fase label for the aggregate card header.
+      const faseLabel = base === 'Final' ? 'Final — dois jogos'
+        : /^SF(\d+)/i.test(base) ? `Semifinal ${base.replace(/^SF/i, '')} — dois jogos`
+        : base;
+
+      items.push({
+        type:     'aggregate',
+        modality, short: meta.short,
+        fase:     faseLabel,
+        base,
+        hora:     cal.hora  || '',
+        local:    cal.local || '',
+        teamA:    ida.teamA  || volta.teamB || 'A definir',
+        teamB:    ida.teamB  || volta.teamA || 'A definir',
+        ida:  { scoreA: ida.scoreA  || '', scoreB: ida.scoreB  || '', isDone: idaDone },
+        volta:{ scoreA: volta.scoreA || '', scoreB: volta.scoreB || '', isDone: voltaDone,
+                hora: (calMap.get(`${modality}||${base} (Volta)`) || {}).hora || '' },
+        aggA, aggB, penA, penB, bothDone,
+        winner: aggWinner || (volta.winner || ida.winner || ''),
+        champion: bothDone && aggWinner ? aggWinner : (champion || ''),
       });
     }
   }
 
-  return fixtures;
-}
-
-async function fetchMataMataFixtures() {
-  const [bracket, calMap] = await Promise.all([fetchMataMataBracket(), fetchMataMataCalendar()]);
-  return flattenMataMata(bracket, calMap);
-}
-
-// ─── Mata-Mata — render ───────────────────────────────────────────────────────
-
-const MM_ROUND_LABEL = { QF: 'Quartas de Final', SF: 'Semifinais', Final: 'Final' };
-const MM_ROUND_ORDER = ['QF', 'SF', 'Final'];
-const MM_DAY_ABBR    = { 'Segunda': 'Seg', 'Terça': 'Ter', 'Quarta': 'Qua', 'Quinta': 'Qui', 'Sexta': 'Sex' };
-
-// Shorten a modality name for the pill buttons.
-function mmShortLabel(modality) {
-  const parts = modality.split(' — Div. ');
-  let name = parts[0]
-    .replace('Futebol Feminino', 'Fut. Fem.')
-    .replace('Futebol',  'Fut.')
-    .replace('Basquete', 'Bas.')
-    .replace('Vôlei',    'Vôl.')
-    .replace('Handebol', 'Hand.')
-    .replace('Tênis de Mesa', 'Tênis');
-  return parts[1] ? `${name} ${parts[1]}` : name;
-}
-
-// Render modality-selector pills into #mata-mata-filters.
-function renderMMFilters() {
-  const container = document.getElementById('mata-mata-filters');
-  if (!container) return;
-  container.innerHTML = lastBracket.map(m =>
-    `<button class="pill-filter ${m.modality === activeMM ? 'pill-filter--active' : ''}"
-             data-mm="${m.modality}">${mmShortLabel(m.modality)}</button>`
-  ).join('');
-  container.querySelectorAll('.pill-filter').forEach(btn => {
-    btn.addEventListener('click', () => {
-      activeMM = btn.dataset.mm;
-      container.querySelectorAll('.pill-filter').forEach(b =>
-        b.classList.toggle('pill-filter--active', b.dataset.mm === activeMM)
-      );
-      renderMMBracket();
-    });
+  // Sort by hora, empty hora sinks to bottom.
+  return items.sort((a, b) => {
+    if (!a.hora && !b.hora) return 0;
+    if (!a.hora) return 1;
+    if (!b.hora) return -1;
+    return a.hora.localeCompare(b.hora);
   });
 }
 
-// Render the bracket for the currently active modality into #mata-mata-board.
-function renderMMBracket() {
-  const board = document.getElementById('mata-mata-board');
-  if (!board) return;
+// ─── Finais — render ─────────────────────────────────────────────────────────
 
-  const modData = lastBracket.find(m => m.modality === activeMM);
-  if (!modData) {
-    board.innerHTML = '<p class="matches-empty">Selecione uma modalidade.</p>';
-    return;
-  }
-
-  // Group matches by round.
-  const byRound = {};
-  for (const match of modData.matches) {
-    if (!byRound[match.round]) byRound[match.round] = [];
-    byRound[match.round].push(match);
-  }
-  const presentRounds = MM_ROUND_ORDER.filter(r => byRound[r]);
-
-  // Normalise team names for winner comparison.
-  const normMM = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-
-  let html = '<div class="mm-bracket">';
-
-  for (const round of presentRounds) {
-    html += `<div class="mm-round">
-      <h4 class="mm-round-label">${MM_ROUND_LABEL[round]}</h4>
-      <div class="mm-matches">`;
-
-    for (const match of byRound[round]) {
-      const calKey = `${activeMM}||${match.fase}`;
-      const cal    = lastCalMap.get(calKey);
-      const isDone = match.scoreA !== '' && match.scoreB !== '';
-
-      const teamAName = match.teamA || 'A definir';
-      const teamBName = match.teamB || 'A definir';
-
-      const winnerNorm = normMM(match.winner);
-      const winnerIsA  = isDone && match.winner !== '' && winnerNorm === normMM(match.teamA);
-      const winnerIsB  = isDone && match.winner !== '' && winnerNorm === normMM(match.teamB);
-
-      let metaHtml = '';
-      if (cal && cal.dia) {
-        const dia = MM_DAY_ABBR[cal.dia] || cal.dia;
-        metaHtml = `<div class="mm-meta">${dia} ${cal.hora} · ${cal.local}</div>`;
-      }
-
-      let penHtml = '';
-      if (match.penA || match.penB) {
-        penHtml = `<div class="mm-pen">pên: ${match.penA || '?'} × ${match.penB || '?'}</div>`;
-      }
-
-      html += `<div class="mm-match${isDone ? ' mm-match--done' : ''}">
-        ${metaHtml}
-        <div class="mm-team${winnerIsA ? ' mm-team--win' : ''}">
-          <span class="mm-team-name">${teamAName}</span>
-          ${isDone ? `<span class="mm-score">${match.scoreA}</span>` : ''}
-        </div>
-        <div class="mm-team${winnerIsB ? ' mm-team--win' : ''}">
-          <span class="mm-team-name">${teamBName}</span>
-          ${isDone ? `<span class="mm-score">${match.scoreB}</span>` : ''}
-        </div>
-        ${penHtml}
-      </div>`;
-    }
-
-    html += '</div></div>'; // .mm-matches + .mm-round
-  }
-
-  html += '</div>'; // .mm-bracket
-
-  if (modData.champion) {
-    html += `<div class="mm-champion">
-      <span class="mm-champion-label">Campeão</span>
-      <span class="mm-champion-name">${modData.champion}</span>
-    </div>`;
-  }
-
-  board.innerHTML = html;
-  if (window.ScrollTrigger) ScrollTrigger.refresh();
-}
-
-// Dispatcher: render whichever Mata-Mata view is active. Called on every refresh
-// and on toggle clicks, so view + modality selections survive the 60s polling.
-function renderMM() {
-  renderMMViewToggle();
-  if (activeMMView === 'local') {
-    document.getElementById('mata-mata-filters').innerHTML = '';   // location list owns its grouping
-    renderMMByLocation();
-  } else {
-    renderMMFilters();
-    renderMMBracket();
-  }
-}
-
-// Two-button segmented toggle (Chaves / Por Local) into #mm-view-toggle.
-function renderMMViewToggle() {
-  const el = document.getElementById('mm-view-toggle');
+function updateFinaisTimestamp() {
+  const el = document.getElementById('finais-last-updated');
   if (!el) return;
-  const views = [['chaves', 'Chaves'], ['local', 'Por Local']];
-  el.innerHTML = views.map(([v, label]) =>
-    `<button class="pill-filter ${v === activeMMView ? 'pill-filter--active' : ''}"
-             data-mmview="${v}">${label}</button>`
-  ).join('');
-  el.querySelectorAll('.pill-filter').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (btn.dataset.mmview === activeMMView) return;
-      activeMMView = btn.dataset.mmview;
-      renderMM();
-    });
-  });
+  const d = new Date();
+  el.textContent = `atualizado ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
 }
 
-// Organizer view: every knockout game grouped by venue, day+time ordered.
-function renderMMByLocation() {
-  const board = document.getElementById('mata-mata-board');
+function renderFinais(items) {
+  const board = document.getElementById('finais-board');
   if (!board) return;
 
-  if (!lastMMFixtures.length) {
-    board.innerHTML = '<p class="matches-empty">Nenhum jogo encontrado.</p>';
+  if (!items.length) {
+    board.innerHTML = '<p class="matches-empty">Nenhuma final encontrada.</p>';
+    if (window.ScrollTrigger) ScrollTrigger.refresh();
     return;
   }
 
-  const byLocal = {};
-  for (const m of lastMMFixtures) {
-    const loc = m.local || 'A definir';
-    (byLocal[loc] ??= []).push(m);
-  }
-
-  const { order } = orderedDays();
-  const dayRank = d => { const i = order.indexOf(d); return i === -1 ? 99 : i; };
-  const locals  = Object.keys(byLocal).sort((a, b) => a.localeCompare(b, 'pt'));
-
-  board.innerHTML = locals.map(loc => {
-    const games = byLocal[loc].slice().sort((a, b) =>
-      dayRank(a.dia) - dayRank(b.dia) || a.hora.localeCompare(b.hora)
-    );
-    return `<div class="day-group">
-      <h3 class="day-label">${loc}</h3>
-      <div class="day-matches">
-        ${games.map(m => {
-          const isDone = m.scoreA !== '' && m.scoreB !== '';
-          const teamsHTML = isDone
-            ? `${m.teamA} <em class="match-score">${m.scoreA}&thinsp;×&thinsp;${m.scoreB}</em> ${m.teamB}`
-            : `${m.teamA}<em> × </em>${m.teamB}`;
-          const badge = isDone
-            ? `<span class="match-badge match-badge--done">Resultado</span>`
-            : `<span class="match-badge match-badge--pending">Pendente</span>`;
-          const day = DAY_LABELS[m.dia] || m.dia;
-          return `<div class="match-row${isDone ? ' match-row--done' : ''}">
-            <span class="match-time">${m.hora}</span>
-            <span class="match-sport-tag">${m.short}${m.phase ? ` · ${m.phase}` : ''}</span>
-            <span class="match-local">${day}</span>
-            <span class="match-teams">${teamsHTML}</span>
-            ${badge}
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
+  board.innerHTML = items.map(item => {
+    if (item.type === 'single') {
+      return renderFinaisSingleRow(item);
+    } else {
+      return renderFinaisAggCard(item);
+    }
   }).join('');
 
   if (window.ScrollTrigger) ScrollTrigger.refresh();
+}
+
+function renderFinaisSingleRow(item) {
+  const isDone = item.isDone;
+  const teamsHTML = isDone
+    ? `${item.teamA} <em class="match-score finais-score">${item.scoreA}&thinsp;×&thinsp;${item.scoreB}</em> ${item.teamB}`
+    : `${item.teamA}<em> × </em>${item.teamB}`;
+  const badge = isDone
+    ? `<span class="match-badge match-badge--done">Resultado</span>`
+    : `<span class="match-badge match-badge--pending">Final</span>`;
+  const localTag = item.local ? `<span class="match-local">${item.local}</span>` : '';
+  return `<div class="match-row finais-row${isDone ? ' match-row--done finais-row--done' : ''}">
+    <span class="match-time">${item.hora}</span>
+    <span class="match-sport-tag finais-sport-tag">${item.short}</span>
+    ${localTag}
+    <span class="match-teams">${teamsHTML}</span>
+    ${badge}
+  </div>`;
+}
+
+function renderFinaisAggCard(item) {
+  const idaDone   = item.ida.isDone;
+  const voltaDone = item.volta.isDone;
+  const bothDone  = item.bothDone;
+
+  const idaScoreTD = idaDone
+    ? `<td class="final-col-score">${item.ida.scoreA}&thinsp;×&thinsp;${item.ida.scoreB}</td>`
+    : `<td class="final-col-score final-col-score--tbd">–</td>`;
+  const voltaScoreTD = voltaDone
+    ? `<td class="final-col-score">${item.volta.scoreA}&thinsp;×&thinsp;${item.volta.scoreB}</td>`
+    : `<td class="final-col-score final-col-score--tbd">–</td>`;
+
+  const voltaHora = item.volta.hora ? `<span class="finais-leg-hora">${item.volta.hora}</span>` : '';
+  const idaHora   = item.hora       ? `<span class="finais-leg-hora">${item.hora}</span>`       : '';
+
+  let aggHTML = '';
+  if (bothDone) {
+    const penHTML = (item.penA || item.penB)
+      ? `<tr class="final-pen-row">
+           <td class="final-col-label">Pênaltis</td>
+           <td class="final-col-team final-col-team--home"></td>
+           <td class="final-col-score">${item.penA}&thinsp;×&thinsp;${item.penB}</td>
+           <td class="final-col-team final-col-team--away"></td>
+         </tr>`
+      : '';
+    aggHTML = `<tr class="final-agg-row finais-agg-row">
+      <td class="final-col-label">Agregado</td>
+      <td class="final-col-team final-col-team--home finais-winner${item.winner && item.winner === item.teamA ? ' finais-winner--active' : ''}">${item.teamA}</td>
+      <td class="final-col-score finais-agg-score">${item.aggA}&thinsp;×&thinsp;${item.aggB}</td>
+      <td class="final-col-team final-col-team--away finais-winner${item.winner && item.winner === item.teamB ? ' finais-winner--active' : ''}">${item.teamB}</td>
+    </tr>${penHTML}`;
+  }
+
+  const champHTML = item.champion
+    ? `<div class="final-champion finais-champion">
+         <span class="final-champion-label finais-champion-label">Campeão</span>
+         <span class="final-champion-name finais-champion-name">${item.champion}</span>
+       </div>`
+    : '';
+
+  const localTag = item.local ? ` · ${item.local}` : '';
+
+  return `<div class="final-card finais-agg-card">
+    <div class="finais-agg-header">
+      <span class="finais-agg-sport">${item.short}</span>
+      <span class="finais-agg-fase">${item.fase}</span>
+    </div>
+    <table class="final-table">
+      <thead>
+        <tr>
+          <th class="final-col-label"></th>
+          <th class="final-col-team final-col-team--home">${item.teamA}</th>
+          <th class="final-col-score"></th>
+          <th class="final-col-team final-col-team--away">${item.teamB}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="final-leg-row${idaDone ? ' final-leg-row--scored' : ''}">
+          <td class="final-col-label">Ida${idaHora}</td>
+          <td class="final-col-team final-col-team--home"></td>
+          ${idaScoreTD}
+          <td class="final-col-team final-col-team--away"></td>
+        </tr>
+        <tr class="final-leg-row${voltaDone ? ' final-leg-row--scored' : ''}">
+          <td class="final-col-label">Volta${voltaHora}</td>
+          <td class="final-col-team final-col-team--home"></td>
+          ${voltaScoreTD}
+          <td class="final-col-team final-col-team--away"></td>
+        </tr>
+        ${aggHTML}
+      </tbody>
+    </table>
+    ${champHTML}
+  </div>`;
 }
 
 // ─── Rendering — sport filter pills (Jogos tab) ───────────────────────────────
@@ -1090,26 +1112,16 @@ async function refreshGrupos() {
   }
 }
 
-function updateMMTimestamp() {
-  const el = document.getElementById('mm-last-updated');
-  if (!el) return;
-  const d = new Date();
-  el.textContent = `atualizado ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-}
-
-async function refreshMataMata() {
+async function refreshFinais() {
   try {
-    const [bracket, calMap] = await Promise.all([fetchMataMataBracket(), fetchMataMataCalendar()]);
-    lastBracket    = bracket;
-    lastCalMap     = calMap;
-    lastMMFixtures = flattenMataMata(bracket, calMap);
-    // Set default active modality on first load; preserve user selection on refreshes.
-    if (!activeMM && bracket.length > 0) activeMM = bracket[0].modality;
-    renderMM();
-    updateMMTimestamp();
+    const [bracket, calMap] = await Promise.all([fetchFinaisBracket(), fetchFinaisCalendar()]);
+    lastFinaisBracket = bracket;
+    lastFinaisCalMap  = calMap;
+    renderFinais(buildFinaisItems(bracket, calMap));
+    updateFinaisTimestamp();
   } catch (err) {
-    console.warn('Mata-Mata refresh failed:', err);
-    const el = document.getElementById('mm-last-updated');
+    console.warn('Finais refresh failed:', err);
+    const el = document.getElementById('finais-last-updated');
     if (el) el.textContent = 'erro ao atualizar';
   }
 }
@@ -1194,382 +1206,19 @@ function initTeams() {
   renderTeams(activeClass);
 }
 
-function initMataMata() {
-  const board = document.getElementById('mata-mata-board');
+function initFinais() {
+  const board = document.getElementById('finais-board');
   if (!board) return;
-  board.innerHTML = '<p class="matches-empty">Carregando chaves…</p>';
-  refreshMataMata();
-  setInterval(refreshMataMata, REFRESH_MS);
-}
-
-// ─── Cronograma (Meu Cronograma) ─────────────────────────────────────────────
-
-// Grade definitions: each grade groups one or more TEAMS keys
-const GRADES = [
-  { label: '6º ano',   classes: ['6A','6B'] },
-  { label: '7º ano',   classes: ['7A','7B'] },
-  { label: '8º ano',   classes: ['8A','8B'] },
-  { label: '9º ano',   classes: ['9A','9B'] },
-  { label: '1ª série', classes: ['1A','1B'] },
-  { label: '2ª série', classes: ['2°']      },
-  { label: '3ª série', classes: ['3A','3B'] },
-];
-
-// How group keys in the TEAMS roster map to fixture team-id suffixes
-const GROUP_SUFFIX = {
-  'Time 1':    '-T1',
-  'Time 2':    '-T2',
-  'Time 3':    '-T3',
-  'Feminino':  '-Fem',
-  'Masculino': '-Mas',
-};
-
-// How TEAMS class keys map to the prefix used in fixture team ids
-// '2°' is written as '2' in the schedule sheet (e.g. '2-Fem', '2-T2').
-const CLASS_PREFIX = { '2°': '2' };
-const classPrefix = c => CLASS_PREFIX[c] ?? c;
-
-// Olimpíada CG uses a different naming convention: 1ª and 2ª série are referenced
-// by grade number only ('1', '2'), while 3A/3B keep their class key.
-// Each roster entry is a separate team, indexed 1-N (e.g. '3A-1', '3A-2').
-const OLIMP_PREFIX = { '1A': '1', '1B': '1', '2°': '2' };
-const olimpPrefix  = c => OLIMP_PREFIX[c] ?? c;
-
-// Sports whose fixtures list the class (+ team suffix) as the team id.
-// All other sports list individual / pair player names as the team id.
-const TEAM_SPORTS = new Set(['Futebol','Basquete','Vôlei','Handebol','Olimpíada']);
-
-// Map TEAMS sport keys → the `filter` field used in match data
-const SPORT_TO_FILTER = {
-  'Futebol':       'Futebol',
-  'Basquete':      'Basquete',
-  'Vôlei':         'Vôlei',
-  'Handebol':      'Handebol',
-  'Tênis de Mesa': 'Tênis de Mesa',
-  'Pebolim':       'Pebolim',
-  'Futmesa':       'Futmesa',
-  'Olimpíada CG':  'Olimpíada',
-};
-
-// Normalize a name: lower-case, strip diacritics, strip non-alphanum (handles
-// apostrophe / backtick drift like Sant'Anna vs Sant`Anna), collapse spaces.
-const normName = s =>
-  s.toLowerCase().normalize('NFD')
-   .replace(/[̀-ͯ]/g, '')
-   .replace(/[^a-z0-9 ]/g, '')
-   .replace(/\s+/g, ' ')
-   .trim();
-
-// Maps normalized variant spellings → normalized canonical name.
-// Used so alternate spellings resolve to the same player in Meu Cronograma.
-const PLAYER_ALIASES = {
-  'matheus regatierri': 'matheus regatieri',
-  'mateus cavalcanti':  'mateus cavalcante',
-  'mateus fer':         'mateus fre',         // normName('Mateus Fré') === 'mateus fre'
-  'miguel parruti':     'miguel arruti',
-};
-
-let cronogramaGrade   = null;   // { label, classes } or null until user selects
-let cronogramaMatches = null;
-
-// Returns all individual player names across the given list of class keys,
-// deduped and sorted. Handles flat arrays, grouped objects, and pair entries
-// like "A e B" or "A, B".
-function getAllPlayersForClasses(classes) {
-  const names = new Set();
-  function extract(entry) {
-    entry.split(/,\s*|\s+e\s+/).forEach(n => { const t = n.trim(); if (t) names.add(t); });
-  }
-  function fromRoster(roster) {
-    if (Array.isArray(roster)) roster.forEach(extract);
-    else if (typeof roster === 'object') Object.values(roster).forEach(fromRoster);
-  }
-  for (const cls of classes) {
-    const data = TEAMS[cls];
-    if (data) Object.values(data).forEach(fromRoster);
-  }
-  return [...names].sort((a, b) => a.localeCompare(b, 'pt'));
-}
-
-// Build a set of "tokens" describing how playerName appears in fixtures across
-// the given list of class keys.  Returns { teamTokens, soloTokens }.
-//
-// teamTokens: Set of fixture team-id strings (e.g. '3A-T1') for team sports.
-// soloTokens: Map of filter → Set of normalized entry strings (e.g. 'sampaio')
-//             for individual sports.
-function getPlayerTokens(classes, playerName) {
-  const playerNorm    = normName(playerName);
-  const canonicalNorm = PLAYER_ALIASES[playerNorm] ?? playerNorm;
-  const teamFilterMap = {};   // filter → Set of fixture team-id strings (sport-scoped)
-  const soloFilterMap = {};   // filter → Set of normalized entry strings
-
-  function playerInEntry(entry) {
-    return entry.split(/,\s*|\s+e\s+/).some(n => {
-      const nn = normName(n);
-      return nn === canonicalNorm || (PLAYER_ALIASES[nn] ?? nn) === canonicalNorm;
-    });
-  }
-
-  for (const cls of classes) {
-    const data = TEAMS[cls];
-    if (!data) continue;
-    const prefix = classPrefix(cls);
-
-    for (const [sport, roster] of Object.entries(data)) {
-      const filter = SPORT_TO_FILTER[sport];
-      if (!filter) continue;
-
-      if (TEAM_SPORTS.has(filter)) {
-        // Team sport: roster is either a flat array (one team) or an object
-        // keyed by group name (e.g. 'Time 1', 'Feminino').
-        // Scope team-ids per sport so Sampaio on 3A-T1 (Futebol) ≠ 3A-T2 (Vôlei).
-        if (filter === 'Olimpíada' && Array.isArray(roster)) {
-          // Each entry IS a separate team, numbered 1-N in the schedule sheet.
-          // Single-team grades (1ª/2ª série) use the bare prefix ('1', '2').
-          const oPrefix = olimpPrefix(cls);
-          const multi   = roster.length > 1;
-          roster.forEach((entry, i) => {
-            if (playerInEntry(entry)) {
-              teamFilterMap[filter] ??= new Set();
-              teamFilterMap[filter].add(multi ? `${oPrefix}-${i + 1}` : oPrefix);
-            }
-          });
-        } else if (Array.isArray(roster)) {
-          if (roster.some(playerInEntry)) {
-            teamFilterMap[filter] ??= new Set();
-            teamFilterMap[filter].add(prefix);          // e.g. '3B' or '9A'
-          }
-        } else {
-          for (const [group, players] of Object.entries(roster)) {
-            if (Array.isArray(players) && players.some(playerInEntry)) {
-              const suffix = GROUP_SUFFIX[group] ?? '';
-              teamFilterMap[filter] ??= new Set();
-              teamFilterMap[filter].add(prefix + suffix);   // e.g. '3A-T1', '2-Fem'
-            }
-          }
-        }
-      } else {
-        // Individual / pair sport: roster entries ARE the fixture team ids.
-        // Collect each entry string where this player appears.
-        const collectEntries = r => {
-          if (Array.isArray(r)) {
-            r.forEach(entry => {
-              if (playerInEntry(entry)) {
-                soloFilterMap[filter] ??= new Set();
-                soloFilterMap[filter].add(normName(entry));
-              }
-            });
-          } else if (typeof r === 'object') {
-            Object.values(r).forEach(collectEntries);
-          }
-        };
-        collectEntries(roster);
-      }
-    }
-  }
-
-  return { teamFilterMap, soloFilterMap };
-}
-
-// ─── Grade autocomplete ───────────────────────────────────────────────────────
-
-function showCronogramaGradeSuggestions(grades, inputEl) {
-  const list = document.getElementById('cronograma-grade-suggestions');
-  if (!list) return;
-  list.innerHTML = grades
-    .map(g => `<li class="cronograma-suggestion-item" data-label="${g.label}">${g.label}</li>`)
-    .join('');
-  list.classList.toggle('cronograma-suggestions--visible', grades.length > 0);
-  list.querySelectorAll('.cronograma-suggestion-item').forEach(item => {
-    item.addEventListener('mousedown', e => {
-      e.preventDefault();
-      selectGrade(item.dataset.label, inputEl);
-    });
-  });
-}
-
-function hideCronogramaGradeSuggestions() {
-  const list = document.getElementById('cronograma-grade-suggestions');
-  if (list) list.classList.remove('cronograma-suggestions--visible');
-}
-
-function selectGrade(label, inputEl) {
-  cronogramaGrade = GRADES.find(g => g.label === label) ?? null;
-  if (inputEl) inputEl.value = label;
-  hideCronogramaGradeSuggestions();
-  // Clear the name field when grade changes
-  const nameInput = document.getElementById('cronograma-name-input');
-  if (nameInput) { nameInput.value = ''; hideCronogramaSuggestions(); }
-}
-
-// ─── Name autocomplete ────────────────────────────────────────────────────────
-
-function showCronogramaSuggestions(names, inputEl) {
-  const list = document.getElementById('cronograma-suggestions');
-  if (!list) return;
-  list.innerHTML = names
-    .map(n => `<li class="cronograma-suggestion-item" data-name="${n}">${n}</li>`)
-    .join('');
-  list.classList.toggle('cronograma-suggestions--visible', names.length > 0);
-  list.querySelectorAll('.cronograma-suggestion-item').forEach(item => {
-    item.addEventListener('mousedown', e => {
-      e.preventDefault();
-      inputEl.value = item.dataset.name;
-      hideCronogramaSuggestions();
-    });
-  });
-}
-
-function hideCronogramaSuggestions() {
-  const list = document.getElementById('cronograma-suggestions');
-  if (list) list.classList.remove('cronograma-suggestions--visible');
-}
-
-// ─── Schedule rendering ───────────────────────────────────────────────────────
-
-function renderPlayerSchedule(gradeObj, playerName, matches) {
-  const results = document.getElementById('cronograma-results');
-  if (!results) return;
-
-  const { teamFilterMap, soloFilterMap } = getPlayerTokens(gradeObj.classes, playerName);
-  const hasAnyToken = Object.keys(teamFilterMap).length > 0 || Object.keys(soloFilterMap).length > 0;
-
-  if (!hasAnyToken) {
-    results.innerHTML = `<p class="matches-empty">
-      Nenhum jogo encontrado para <strong>${playerName}</strong> na <strong>${gradeObj.label}</strong>.
-      Verifique se o nome está idêntico ao da lista de times.
-    </p>`;
-    if (window.ScrollTrigger) ScrollTrigger.refresh();
-    return;
-  }
-
-  const pool = (matches || []).filter(m => {
-    if (TEAM_SPORTS.has(m.filter)) {
-      const ids = teamFilterMap[m.filter];
-      return !!ids && (ids.has(m.teamA) || ids.has(m.teamB));
-    }
-    const entries = soloFilterMap[m.filter];
-    if (!entries) return false;
-    return entries.has(normName(m.teamA)) || entries.has(normName(m.teamB));
-  });
-
-  if (!pool.length) {
-    results.innerHTML = `<p class="matches-empty">Nenhum jogo agendado encontrado para <strong>${playerName}</strong> (${gradeObj.label}).</p>`;
-    if (window.ScrollTrigger) ScrollTrigger.refresh();
-    return;
-  }
-
-  // Derive a readable sports list for the header from the matched fixtures
-  const sportLabels = [...new Set(pool.map(m => m.filter))];
-
-  const byDay = {};
-  pool.forEach(m => { (byDay[m.dia] ??= []).push(m); });
-
-  results.innerHTML = `
-    <div class="cronograma-player-header">
-      <span class="cronograma-player-name">${playerName}</span>
-      <span class="cronograma-player-meta">${gradeObj.label} &bull; ${sportLabels.join(' &bull; ')}</span>
-    </div>
-    ${(() => { const { order, pastSet } = orderedDays(); return order.filter(d => byDay[d]).map(day => {
-      const sorted = byDay[day].slice().sort((a, b) => a.hora.localeCompare(b.hora));
-      return `<div class="day-group${pastSet.has(day) ? ' day-group--past' : ''}">
-        <h3 class="day-label">${DAY_LABELS[day]}</h3>
-        <div class="day-matches">
-          ${sorted.map(m => {
-            const isDone = m.scoreA !== '' && m.scoreB !== '';
-            const teamsHTML = isDone
-              ? `${m.teamA} <em class="match-score">${m.scoreA}&thinsp;×&thinsp;${m.scoreB}</em> ${m.teamB}`
-              : `${m.teamA}<em> × </em>${m.teamB}`;
-            const badge = isDone
-              ? `<span class="match-badge match-badge--done">Resultado</span>`
-              : `<span class="match-badge match-badge--pending">Pendente</span>`;
-            const localTag = m.local ? `<span class="match-local">${m.local}</span>` : '';
-            return `<div class="match-row${isDone ? ' match-row--done' : ''}">
-              <span class="match-time">${m.hora}</span>
-              <span class="match-sport-tag">${m.short}${m.phase ? ` · ${m.phase}` : ''}</span>
-              ${localTag}
-              <span class="match-teams">${teamsHTML}</span>
-              ${badge}
-            </div>`;
-          }).join('')}
-        </div>
-      </div>`;
-    }).join(''); })()}`;
-
-  if (window.ScrollTrigger) ScrollTrigger.refresh();
-}
-
-function initCronograma() {
-  const form        = document.getElementById('cronograma-form');
-  const gradeInput  = document.getElementById('cronograma-grade-input');
-  const nameInput   = document.getElementById('cronograma-name-input');
-  const results     = document.getElementById('cronograma-results');
-
-  if (!form || !gradeInput || !nameInput || !results) return;
-
-  // Grade input — filter GRADES by typed text
-  gradeInput.addEventListener('input', () => {
-    const val = gradeInput.value.trim().toLowerCase();
-    if (!val) { hideCronogramaGradeSuggestions(); cronogramaGrade = null; return; }
-    const hits = GRADES.filter(g =>
-      g.label.toLowerCase().includes(val) ||
-      g.classes.some(c => c.toLowerCase().includes(val))
-    );
-    showCronogramaGradeSuggestions(hits, gradeInput);
-  });
-  gradeInput.addEventListener('blur', () => {
-    setTimeout(() => {
-      hideCronogramaGradeSuggestions();
-      // If the typed text exactly matches a grade label, keep it selected;
-      // otherwise snap to closest match or clear.
-      const match = GRADES.find(g => g.label.toLowerCase() === gradeInput.value.trim().toLowerCase());
-      if (match) { cronogramaGrade = match; gradeInput.value = match.label; }
-      else if (!cronogramaGrade) gradeInput.value = '';
-    }, 150);
-  });
-
-  // Name input — filter players from the selected grade
-  nameInput.addEventListener('input', () => {
-    const val = nameInput.value.trim().toLowerCase();
-    if (!val) { hideCronogramaSuggestions(); return; }
-    if (!cronogramaGrade) return;
-    const all  = getAllPlayersForClasses(cronogramaGrade.classes);
-    const hits = all.filter(n => n.toLowerCase().includes(val));
-    showCronogramaSuggestions(hits.slice(0, 8), nameInput);
-  });
-  nameInput.addEventListener('blur', () => setTimeout(hideCronogramaSuggestions, 150));
-
-  form.addEventListener('submit', e => {
-    e.preventDefault();
-    const name = nameInput.value.trim();
-    if (!name) return;
-    if (!cronogramaGrade) {
-      results.innerHTML = `<p class="matches-empty">Selecione sua série antes de buscar.</p>`;
-      gradeInput.focus();
-      return;
-    }
-    hideCronogramaSuggestions();
-    hideCronogramaGradeSuggestions();
-    if (!cronogramaMatches) {
-      results.innerHTML = `<p class="matches-empty">Carregando jogos, tente novamente em instantes…</p>`;
-      return;
-    }
-    renderPlayerSchedule(cronogramaGrade, name, cronogramaMatches);
-    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-
-  // Pre-fetch knockout fixtures in the background so search is instant
-  fetchMataMataFixtures()
-    .then(m => { cronogramaMatches = m; })
-    .catch(() => { cronogramaMatches = []; });
+  board.innerHTML = '<p class="matches-empty">Carregando finais…</p>';
+  refreshFinais();
+  setInterval(refreshFinais, REFRESH_MS);
 }
 
 // Each subpage carries only its own root container — detect & run that page.
 document.addEventListener('DOMContentLoaded', () => {
-  if (document.getElementById('matches-list'))       initGames();
-  if (document.getElementById('grupos-board'))       initGrupos();
-  if (document.getElementById('champions-board'))    initChampions();
-  if (document.getElementById('teams-board'))        initTeams();
-  if (document.getElementById('cronograma-results')) initCronograma();
-  if (document.getElementById('mata-mata-board'))    initMataMata();
+  if (document.getElementById('matches-list'))    initGames();
+  if (document.getElementById('grupos-board'))    initGrupos();
+  if (document.getElementById('champions-board')) initChampions();
+  if (document.getElementById('teams-board'))     initTeams();
+  if (document.getElementById('finais-board'))    initFinais();
 });
